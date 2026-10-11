@@ -17,7 +17,12 @@ import {
   Globe,
   Sun,
   Moon,
-  Palette
+  Palette,
+  Database,
+  ArrowDownToLine,
+  Upload,
+  Trash2,
+  ShieldAlert
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -26,6 +31,10 @@ interface SettingsViewProps {
   onToast: (msg: string) => void;
   theme?: 'light' | 'dark';
   onSelectTheme?: (theme: 'light' | 'dark') => void;
+  onResetViolations?: () => void;
+  onWipeAllData?: () => void;
+  onBackupData?: () => void;
+  onRestoreData?: (file: File) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -34,9 +43,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onToast,
   theme = 'light',
   onSelectTheme,
+  onResetViolations,
+  onWipeAllData,
+  onBackupData,
+  onRestoreData,
 }) => {
   const [form, setForm] = useState<AppSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [confirmResetViolations, setConfirmResetViolations] = useState(false);
+  const [confirmWipe, setConfirmWipe] = useState(false);
+  const [wipeInput, setWipeInput] = useState('');
+  const restoreFileRef = React.useRef<HTMLInputElement>(null);
 
   const handleChange = (field: keyof AppSettings, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -174,6 +191,111 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Database Management & Backup Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4 transition-colors">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              Tata Kelola Basis Data (Backup, Pulihkan &amp; Pembersihan Data)
+            </h2>
+          </div>
+          <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded">
+            Keamanan Data Sekolah
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          Gunakan utilitas di bawah ini untuk mengamankan data dengan mengekspor backup berkala ke komputer / Google Drive, mereset data riwayat keterlambatan di akhir semester, atau memulihkan data dari file cadangan.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+          {/* Backup Button */}
+          <button
+            type="button"
+            onClick={onBackupData}
+            className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-all text-left space-y-1.5 group shadow-xs cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-blue-900 dark:text-blue-300">
+                Backup Data (JSON)
+              </span>
+              <ArrowDownToLine className="w-4 h-4 text-blue-600 dark:text-blue-400 group-hover:translate-y-0.5 transition-transform" />
+            </div>
+            <p className="text-[11px] text-blue-800/80 dark:text-blue-400/80">
+              Unduh salinan lengkap database sistem ke lokal PC atau Google Drive.
+            </p>
+          </button>
+
+          {/* Restore Button */}
+          <input
+            ref={restoreFileRef}
+            type="file"
+            accept=".json"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                onRestoreData?.(file);
+                if (restoreFileRef.current) restoreFileRef.current.value = '';
+              }
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => restoreFileRef.current?.click()}
+            className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-left space-y-1.5 group shadow-xs cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                Pulihkan Data
+              </span>
+              <Upload className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:-translate-y-0.5 transition-transform" />
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Muat kembali data dari file cadangan JSON yang telah disimpan sebelumnya.
+            </p>
+          </button>
+
+          {/* Reset Violations Only */}
+          <button
+            type="button"
+            onClick={() => setConfirmResetViolations(true)}
+            className="p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-all text-left space-y-1.5 group shadow-xs cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-amber-900 dark:text-amber-300">
+                Reset Pelanggaran
+              </span>
+              <RotateCcw className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:rotate-45 transition-transform" />
+            </div>
+            <p className="text-[11px] text-amber-800/80 dark:text-amber-400/80">
+              Kosongkan riwayat keterlambatan semester. Master data siswa &amp; guru tetap aman.
+            </p>
+          </button>
+
+          {/* Wipe All Data */}
+          <button
+            type="button"
+            onClick={() => {
+              setWipeInput('');
+              setConfirmWipe(true);
+            }}
+            className="p-3.5 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/60 transition-all text-left space-y-1.5 group shadow-xs cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-red-900 dark:text-red-300">
+                Hapus Semua Data
+              </span>
+              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-[11px] text-red-800/80 dark:text-red-400/80">
+              Pembersihan total sistem untuk inisialisasi ulang tahun ajaran baru.
+            </p>
+          </button>
         </div>
       </div>
 
@@ -522,6 +644,92 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       </form>
+
+      {/* Confirmation Dialog: Reset Violations */}
+      {confirmResetViolations && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-amber-600 text-white px-5 py-4 flex items-center gap-2.5">
+              <RotateCcw className="w-5 h-5 shrink-0" />
+              <h3 className="font-bold text-sm">Konfirmasi Reset Data Pelanggaran Siswa</h3>
+            </div>
+            <div className="p-5 space-y-3 text-xs text-slate-700 dark:text-slate-300">
+              <p className="leading-relaxed">
+                Tindakan ini akan <strong>mengosongkan seluruh catatan keterlambatan</strong> dan riwayat pembinaan di semester ini.
+              </p>
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-900 dark:text-emerald-300 text-[11px]">
+                ✓ Master Data Siswa, Guru BK, KKK, dan Pengaturan Profil Sekolah tetap utuh &amp; aman.
+              </div>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setConfirmResetViolations(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmResetViolations(false);
+                  onResetViolations?.();
+                }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg shadow-xs"
+              >
+                Ya, Reset Pelanggaran
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog: Wipe All Data */}
+      {confirmWipe && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-red-300 dark:border-red-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-red-700 text-white px-5 py-4 flex items-center gap-2.5">
+              <ShieldAlert className="w-5 h-5 shrink-0" />
+              <h3 className="font-bold text-sm">Peringatan Kritis: Hapus Seluruh Data</h3>
+            </div>
+            <div className="p-5 space-y-3 text-xs text-slate-700 dark:text-slate-300">
+              <p className="leading-relaxed text-red-900 dark:text-red-300 font-semibold">
+                Tindakan ini akan mengosongkan seluruh data operasional untuk memulai dari awal bersih!
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Ketik kata <strong>HAPUS</strong> di bawah ini untuk mengonfirmasi:
+              </p>
+              <input
+                type="text"
+                value={wipeInput}
+                onChange={(e) => setWipeInput(e.target.value)}
+                placeholder="Ketik 'HAPUS'"
+                className="w-full p-2 border border-red-300 dark:border-red-700 rounded-lg font-mono text-center bg-white dark:bg-slate-800 uppercase tracking-widest text-sm"
+              />
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setConfirmWipe(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={wipeInput.trim().toUpperCase() !== 'HAPUS'}
+                onClick={() => {
+                  setConfirmWipe(false);
+                  onWipeAllData?.();
+                }}
+                className="px-4 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white font-semibold rounded-lg shadow-xs"
+              >
+                Hapus Semua Data Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

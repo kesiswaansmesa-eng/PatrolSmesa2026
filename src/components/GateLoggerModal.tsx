@@ -78,20 +78,29 @@ export const GateLoggerModal: React.FC<GateLoggerModalProps> = ({
   );
   const [notes, setNotes] = useState('');
   const [recordedBy, setRecordedBy] = useState('Pak Hendra (Piket Gerbang)');
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string>('ALL');
   const [openWhatsAppDirectly, setOpenWhatsAppDirectly] = useState(false);
   const [justSavedNotification, setJustSavedNotification] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  // Filter students based on query
-  const filteredStudents = searchQuery.trim()
-    ? students.filter(
-        (s) =>
-          s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.nis.includes(searchQuery.trim()) ||
-          s.className.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  const uniqueClasses = Array.from(new Set(students.map((s) => s.className))).sort();
+
+  // Filter students based on query and class filter
+  const filteredStudents = students.filter((s) => {
+    if (selectedClassFilter !== 'ALL' && s.className !== selectedClassFilter) {
+      return false;
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.nis.includes(searchQuery.trim()) ||
+        s.className.toLowerCase().includes(q)
+      );
+    }
+    return selectedClassFilter !== 'ALL';
+  });
 
   const gateClosingTime = settings?.gateClosingTime || '07:00';
   const minutesLate = calculateMinutesLate(recordTime, gateClosingTime);
@@ -228,23 +237,39 @@ export const GateLoggerModal: React.FC<GateLoggerModalProps> = ({
             </div>
 
             {!selectedStudent ? (
-              <div className="relative">
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    id={searchInputId}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Ketik Nama, NIS (contoh: 23241001), atau Kelas (contoh: XI RPL 1)..."
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                    autoFocus
-                  />
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="sm:w-48 shrink-0">
+                    <select
+                      value={selectedClassFilter}
+                      onChange={(e) => setSelectedClassFilter(e.target.value)}
+                      className="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg bg-slate-50 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="ALL">🔍 Semua Kelas ({uniqueClasses.length})</option>
+                      {uniqueClasses.map((cls) => (
+                        <option key={cls} value={cls}>
+                          Kelas: {cls}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      id={searchInputId}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={selectedClassFilter !== 'ALL' ? `Cari siswa di kelas ${selectedClassFilter}...` : "Ketik Nama, NIS, atau Kelas..."}
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      autoFocus
+                    />
+                  </div>
                 </div>
 
-                {/* Autocomplete Dropdown */}
-                {searchQuery.trim().length > 0 && (
-                  <div className="mt-1 border border-slate-200 rounded-lg shadow-lg bg-white max-h-48 overflow-y-auto divide-y divide-slate-100 z-10">
+                {/* Autocomplete Dropdown or Class Student List */}
+                {(searchQuery.trim().length > 0 || selectedClassFilter !== 'ALL') && (
+                  <div className="border border-slate-200 rounded-lg shadow-lg bg-white max-h-52 overflow-y-auto divide-y divide-slate-100 z-10">
                     {filteredStudents.length > 0 ? (
                       filteredStudents.map((std) => (
                         <button
@@ -256,17 +281,17 @@ export const GateLoggerModal: React.FC<GateLoggerModalProps> = ({
                           <div>
                             <span className="font-semibold text-slate-900">{std.name}</span>
                             <div className="text-[11px] text-slate-500">
-                              NIS: {std.nis} · {std.className} · Wali: {std.waliKelas}
+                              NIS: {std.nis} · <span className="font-medium text-blue-700">{std.className}</span> · Wali: {std.waliKelas}
                             </div>
                           </div>
-                          <span className="text-[11px] font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                            Pilih
+                          <span className="text-[11px] font-mono text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200 font-semibold">
+                            Pilih Siswa
                           </span>
                         </button>
                       ))
                     ) : (
                       <div className="px-3 py-3 text-xs text-slate-500 text-center">
-                        Tidak ada siswa dengan kata kunci "{searchQuery}"
+                        Tidak ada siswa yang cocok {selectedClassFilter !== 'ALL' ? `di kelas ${selectedClassFilter}` : `dengan kata kunci "${searchQuery}"`}
                       </div>
                     )}
                   </div>

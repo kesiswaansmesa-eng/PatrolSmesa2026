@@ -1,10 +1,13 @@
-import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS } from '../types/patrol';
-import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES } from '../data/initialData';
+import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS, GuruBK, KKK, TimKesiswaan } from '../types/patrol';
+import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES, INITIAL_GURU_BK, INITIAL_KKK, INITIAL_TIM_KESISWAAN } from '../data/initialData';
 
 const STORAGE_KEYS = {
   RECORDS: 'patrol_smesa_records_v1',
   STUDENTS: 'patrol_smesa_students_v1',
   COUNSELING: 'patrol_smesa_counseling_v1',
+  GURU_BK: 'patrol_smesa_guru_bk_v1',
+  KKK: 'patrol_smesa_kkk_v1',
+  TIM_KESISWAAN: 'patrol_smesa_tim_kesiswaan_v1',
   ROLE: 'patrol_smesa_role_v1',
   SESSION: 'patrol_smesa_session_v1',
   SETTINGS: 'patrol_smesa_settings_v1',
@@ -161,6 +164,72 @@ export const saveStoredCounseling = (entries: CounselingEntry[]): void => {
   }
 };
 
+export const getStoredGuruBK = (): GuruBK[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.GURU_BK);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.GURU_BK, JSON.stringify(INITIAL_GURU_BK));
+      return INITIAL_GURU_BK;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load Guru BK from storage', e);
+    return INITIAL_GURU_BK;
+  }
+};
+
+export const saveStoredGuruBK = (items: GuruBK[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.GURU_BK, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save Guru BK to storage', e);
+  }
+};
+
+export const getStoredKKK = (): KKK[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.KKK);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.KKK, JSON.stringify(INITIAL_KKK));
+      return INITIAL_KKK;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load KKK from storage', e);
+    return INITIAL_KKK;
+  }
+};
+
+export const saveStoredKKK = (items: KKK[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.KKK, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save KKK to storage', e);
+  }
+};
+
+export const getStoredTimKesiswaan = (): TimKesiswaan[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.TIM_KESISWAAN);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(INITIAL_TIM_KESISWAAN));
+      return INITIAL_TIM_KESISWAAN;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load Tim Kesiswaan from storage', e);
+    return INITIAL_TIM_KESISWAAN;
+  }
+};
+
+export const saveStoredTimKesiswaan = (items: TimKesiswaan[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save Tim Kesiswaan to storage', e);
+  }
+};
+
 export const getStoredRole = (): AppRole => {
   try {
     const role = localStorage.getItem(STORAGE_KEYS.ROLE);
@@ -186,8 +255,108 @@ export const resetAllData = (): void => {
     localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(INITIAL_LATE_RECORDS));
     localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS));
     localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify(INITIAL_COUNSELING_ENTRIES));
+    localStorage.setItem(STORAGE_KEYS.GURU_BK, JSON.stringify(INITIAL_GURU_BK));
+    localStorage.setItem(STORAGE_KEYS.KKK, JSON.stringify(INITIAL_KKK));
+    localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(INITIAL_TIM_KESISWAAN));
   } catch (e) {
     // ignore
+  }
+};
+
+/**
+ * Resets ONLY late records & counseling entries back to empty, leaving all Master Data intact.
+ */
+export const resetViolationsOnly = (): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify([]));
+  } catch (e) {
+    console.error('Failed to reset violations data', e);
+  }
+};
+
+/**
+ * Completely empties operational and master data records for clean start.
+ */
+export const wipeAllSystemData = (): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify([]));
+    // Re-initialize master BK, KKK, Tim Kesiswaan to standard or empty as needed
+  } catch (e) {
+    console.error('Failed to wipe system data', e);
+  }
+};
+
+export interface SystemBackupPayload {
+  version: string;
+  exportedAt: string;
+  records: LateRecord[];
+  students: Student[];
+  counseling: CounselingEntry[];
+  guruBK: GuruBK[];
+  kkk: KKK[];
+  timKesiswaan: TimKesiswaan[];
+  settings: AppSettings;
+}
+
+export const exportSystemBackup = (): void => {
+  try {
+    const backup: SystemBackupPayload = {
+      version: '1.2.0',
+      exportedAt: new Date().toISOString(),
+      records: getStoredRecords(),
+      students: getStoredStudents(),
+      counseling: getStoredCounseling(),
+      guruBK: getStoredGuruBK(),
+      kkk: getStoredKKK(),
+      timKesiswaan: getStoredTimKesiswaan(),
+      settings: getStoredSettings(),
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backup, null, 2));
+    const downloadAnchor = document.createElement('a');
+    const timeFormatted = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `BACKUP_PATROL_SMESA_SMKN1_JEMBER_${timeFormatted}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  } catch (e) {
+    console.error('Failed to export backup', e);
+  }
+};
+
+export const restoreSystemBackup = (parsed: any): boolean => {
+  try {
+    if (!parsed || typeof parsed !== 'object') return false;
+
+    if (Array.isArray(parsed.records)) {
+      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(parsed.records));
+    }
+    if (Array.isArray(parsed.students)) {
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(parsed.students));
+    }
+    if (Array.isArray(parsed.counseling)) {
+      localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify(parsed.counseling));
+    }
+    if (Array.isArray(parsed.guruBK)) {
+      localStorage.setItem(STORAGE_KEYS.GURU_BK, JSON.stringify(parsed.guruBK));
+    }
+    if (Array.isArray(parsed.kkk)) {
+      localStorage.setItem(STORAGE_KEYS.KKK, JSON.stringify(parsed.kkk));
+    }
+    if (Array.isArray(parsed.timKesiswaan)) {
+      localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(parsed.timKesiswaan));
+    }
+    if (parsed.settings && typeof parsed.settings === 'object') {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed.settings));
+    }
+    return true;
+  } catch (e) {
+    console.error('Failed to restore backup', e);
+    return false;
   }
 };
 

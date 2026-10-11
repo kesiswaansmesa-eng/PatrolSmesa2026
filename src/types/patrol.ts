@@ -46,6 +46,39 @@ export type EducationalSanction =
 
 export type CounselingLevel = 'Tingkat 1 (Ringan)' | 'Tingkat 2 (Sedang)' | 'Tingkat 3 (Berat)';
 
+export interface GuruBK {
+  id: string;
+  nip: string;
+  name: string;
+  phone: string;
+  roleTitle: string; // e.g. "Koordinator Guru BK", "Guru BK Kelas X", "Guru BK Kelas XI", "Guru BK Kelas XII"
+  specialization?: string;
+  email?: string;
+  status: 'Aktif' | 'Cuti' | 'Nonaktif';
+}
+
+export interface KKK {
+  id: string;
+  nip: string;
+  name: string;
+  majorId: MajorId;
+  majorName: string;
+  phone: string;
+  officeRoom?: string; // Ruang Bengkel/Studio/Lab
+  email?: string;
+  status: 'Aktif' | 'Nonaktif';
+}
+
+export interface TimKesiswaan {
+  id: string;
+  nip: string;
+  name: string;
+  position: string; // e.g. "Waka Kesiswaan", "Koordinator Piket & Tatib", "Pembina OSIS & MPK", "Staf Kedisiplinan"
+  phone: string;
+  email?: string;
+  status: 'Aktif' | 'Nonaktif';
+}
+
 export interface LateRecord {
   id: string;
   studentId: string;

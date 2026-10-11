@@ -9,7 +9,10 @@ import {
   Student, 
   CounselingEntry, 
   AppRole,
-  UserSession
+  UserSession,
+  GuruBK,
+  KKK,
+  TimKesiswaan
 } from './types/patrol';
 import { 
   getStoredRecords, 
@@ -27,7 +30,17 @@ import {
   getStoredTheme,
   saveStoredTheme,
   ThemeMode,
-  resetAllData 
+  resetAllData,
+  getStoredGuruBK,
+  saveStoredGuruBK,
+  getStoredKKK,
+  saveStoredKKK,
+  getStoredTimKesiswaan,
+  saveStoredTimKesiswaan,
+  resetViolationsOnly,
+  wipeAllSystemData,
+  exportSystemBackup,
+  restoreSystemBackup
 } from './utils/storage';
 import { AppSettings, DEFAULT_SETTINGS } from './types/patrol';
 import { LoginPage } from './components/LoginPage';
@@ -50,6 +63,9 @@ export default function App() {
   const [records, setRecords] = useState<LateRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [counselingEntries, setCounselingEntries] = useState<CounselingEntry[]>([]);
+  const [guruBK, setGuruBK] = useState<GuruBK[]>([]);
+  const [kkkList, setKKKList] = useState<KKK[]>([]);
+  const [timKesiswaan, setTimKesiswaan] = useState<TimKesiswaan[]>([]);
   const [activeRole, setActiveRole] = useState<AppRole>('kesiswaan');
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [theme, setTheme] = useState<ThemeMode>('light');
@@ -71,6 +87,9 @@ export default function App() {
     setRecords(getStoredRecords());
     setStudents(getStoredStudents());
     setCounselingEntries(getStoredCounseling());
+    setGuruBK(getStoredGuruBK());
+    setKKKList(getStoredKKK());
+    setTimKesiswaan(getStoredTimKesiswaan());
     setSettings(getStoredSettings());
 
     const initialTheme = getStoredTheme();
@@ -227,14 +246,82 @@ export default function App() {
       setRecords(getStoredRecords());
       setStudents(getStoredStudents());
       setCounselingEntries(getStoredCounseling());
+      setGuruBK(getStoredGuruBK());
+      setKKKList(getStoredKKK());
+      setTimKesiswaan(getStoredTimKesiswaan());
       triggerToast('Data contoh SMKN 1 Jember berhasil dimuat ulang.');
     }
   };
 
-  // Update students handler for Master Data
+  // Update master handlers
   const handleUpdateStudents = (newStudents: Student[]) => {
     setStudents(newStudents);
     saveStoredStudents(newStudents);
+  };
+
+  const handleUpdateGuruBK = (newList: GuruBK[]) => {
+    setGuruBK(newList);
+    saveStoredGuruBK(newList);
+  };
+
+  const handleUpdateKKK = (newList: KKK[]) => {
+    setKKKList(newList);
+    saveStoredKKK(newList);
+  };
+
+  const handleUpdateTimKesiswaan = (newList: TimKesiswaan[]) => {
+    setTimKesiswaan(newList);
+    saveStoredTimKesiswaan(newList);
+  };
+
+  // Reset Violations only
+  const handleResetViolations = () => {
+    resetViolationsOnly();
+    setRecords([]);
+    setCounselingEntries([]);
+    triggerToast('Seluruh riwayat pelanggaran dan pembinaan siswa berhasil direset.');
+  };
+
+  // Wipe All Data
+  const handleWipeAllData = () => {
+    wipeAllSystemData();
+    setRecords([]);
+    setCounselingEntries([]);
+    setStudents([]);
+    triggerToast('Basis data operasional berhasil dihapus bersih.');
+  };
+
+  // Backup Data (JSON)
+  const handleBackupData = () => {
+    exportSystemBackup();
+    triggerToast('File backup data (JSON) berhasil diunduh ke PC.');
+  };
+
+  // Restore Data (JSON)
+  const handleRestoreData = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const parsed = JSON.parse(text);
+        const ok = restoreSystemBackup(parsed);
+        if (ok) {
+          setRecords(getStoredRecords());
+          setStudents(getStoredStudents());
+          setCounselingEntries(getStoredCounseling());
+          setGuruBK(getStoredGuruBK());
+          setKKKList(getStoredKKK());
+          setTimKesiswaan(getStoredTimKesiswaan());
+          setSettings(getStoredSettings());
+          triggerToast('Basis data sistem berhasil dipulihkan dari file backup!');
+        } else {
+          triggerToast('Gagal memulihkan: Format backup tidak dikenali.');
+        }
+      } catch (err) {
+        triggerToast('Gagal membaca file JSON backup.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   // Save settings handler
@@ -327,6 +414,8 @@ export default function App() {
             records={records}
             students={students}
             counselingEntries={counselingEntries}
+            guruBK={guruBK}
+            timKesiswaan={timKesiswaan}
             onAddCounselingEntry={handleAddCounselingEntry}
             onPrintCallLetter={handlePrintCallLetter}
             onPrintCommitmentLetter={handlePrintCommitmentLetter}
@@ -342,6 +431,16 @@ export default function App() {
             <MasterDataView
               students={students}
               onUpdateStudents={handleUpdateStudents}
+              guruBK={guruBK}
+              onUpdateGuruBK={handleUpdateGuruBK}
+              kkkList={kkkList}
+              onUpdateKKK={handleUpdateKKK}
+              timKesiswaan={timKesiswaan}
+              onUpdateTimKesiswaan={handleUpdateTimKesiswaan}
+              onResetViolations={handleResetViolations}
+              onWipeAllData={handleWipeAllData}
+              onBackupData={handleBackupData}
+              onRestoreData={handleRestoreData}
               onToast={triggerToast}
             />
           ) : (
@@ -353,7 +452,7 @@ export default function App() {
                 Akses Terbatas: Khusus Tim Kesiswaan / Admin
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-                Menu Master Data Siswa &amp; Import Excel hanya dapat dikelola oleh akun Tim Kesiswaan / Administrator demi menjaga keakuratan dan integritas basis data siswa {settings.schoolName}.
+                Menu Master Data Siswa, Guru BK, KKK &amp; Tim Kesiswaan hanya dapat dikelola oleh akun Tim Kesiswaan / Administrator demi menjaga keakuratan dan integritas basis data siswa {settings.schoolName}.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -381,6 +480,10 @@ export default function App() {
               onToast={triggerToast}
               theme={theme}
               onSelectTheme={handleSelectTheme}
+              onResetViolations={handleResetViolations}
+              onWipeAllData={handleWipeAllData}
+              onBackupData={handleBackupData}
+              onRestoreData={handleRestoreData}
             />
           ) : (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 max-w-lg mx-auto text-center shadow-xs transition-colors my-12">
