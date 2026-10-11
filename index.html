@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Defensive patch: prevent "Cannot set property fetch of #<Window> which has only a getter"
+      // when browser extensions or interceptors assign window.fetch = ...
+      (function() {
+        try {
+          var rawFetch = window.fetch;
+          if (typeof rawFetch === 'function') {
+            var currentFetch = function() {
+              return rawFetch.apply(window, arguments);
+            };
+            var propConfig = {
+              configurable: true,
+              enumerable: true,
+              get: function() {
+                return currentFetch;
+              },
+              set: function(fn) {
+                currentFetch = fn;
+              }
+            };
+            try {
+              Object.defineProperty(window, 'fetch', propConfig);
+            } catch (_) {}
+            if (typeof Window !== 'undefined' && Window.prototype) {
+              try {
+                Object.defineProperty(Window.prototype, 'fetch', propConfig);
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      })();
+    </script>
+    <script>
+      // Immediate theme initialization to avoid white flash
+      try {
+        var theme = localStorage.getItem('patrol_smesa_theme_v1');
+        if (theme === 'dark' || (!theme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (_) {}
+    </script>
+    <title>PATROL - SMKN 1 Jember | Pencatatan & Tracing Keterlambatan</title>
+    <meta name="description" content="PATROL (Pencatatan & Tracing Keterlambatan Sekolah) SMK Negeri 1 Jember - Catat Cepat, Data Akurat, Pembinaan Tepat." />
+    <meta property="og:title" content="PATROL - SMKN 1 Jember | Pencatatan & Tracing Keterlambatan" />
+    <meta property="og:description" content="PATROL (Pencatatan & Tracing Keterlambatan Sekolah) SMK Negeri 1 Jember - Catat Cepat, Data Akurat, Pembinaan Tepat." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="https://iili.io/nMvNPFs.md.png" />
+    <meta property="og:image" content="https://iili.io/nMvNPFs.md.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 antialiased selection:bg-blue-600 selection:text-white transition-colors duration-200">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

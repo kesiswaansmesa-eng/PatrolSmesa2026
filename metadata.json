@@ -1,0 +1,6 @@
+{
+  "name": "PATROL - SMKN 1 Jember",
+  "description": "PATROL (Pencatatan & Tracing Keterlambatan Sekolah) SMK Negeri 1 Jember - Catat Cepat, Data Akurat, Pembinaan Tepat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

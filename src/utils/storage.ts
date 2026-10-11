@@ -1,0 +1,322 @@
+import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS } from '../types/patrol';
+import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES } from '../data/initialData';
+
+const STORAGE_KEYS = {
+  RECORDS: 'patrol_smesa_records_v1',
+  STUDENTS: 'patrol_smesa_students_v1',
+  COUNSELING: 'patrol_smesa_counseling_v1',
+  ROLE: 'patrol_smesa_role_v1',
+  SESSION: 'patrol_smesa_session_v1',
+  SETTINGS: 'patrol_smesa_settings_v1',
+  SELECTED_MAJOR: 'patrol_smesa_sel_major_v1',
+  SELECTED_CLASS: 'patrol_smesa_sel_class_v1',
+  THEME: 'patrol_smesa_theme_v1',
+};
+
+export type ThemeMode = 'light' | 'dark';
+
+export const getStoredTheme = (): ThemeMode => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.THEME);
+    if (raw === 'dark' || raw === 'light') return raw;
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  } catch {
+    return 'light';
+  }
+};
+
+export const applyTheme = (theme: ThemeMode): void => {
+  if (typeof document !== 'undefined') {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
+};
+
+export const saveStoredTheme = (theme: ThemeMode): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+    applyTheme(theme);
+  } catch (e) {
+    console.error('Failed to save theme to storage', e);
+  }
+};
+
+export const getStoredSettings = (): AppSettings => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
+      return DEFAULT_SETTINGS;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed.logoUrl || parsed.logoUrl.includes('placeholder') || parsed.logoUrl.includes('unsplash')) {
+      parsed.logoUrl = DEFAULT_SETTINGS.logoUrl;
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed };
+  } catch (e) {
+    return DEFAULT_SETTINGS;
+  }
+};
+
+export const saveStoredSettings = (settings: AppSettings): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  } catch (e) {
+    console.error('Failed to save settings to storage', e);
+  }
+};
+
+export const getStoredSession = (): UserSession | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SESSION);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+};
+
+export const saveStoredSession = (session: UserSession | null): void => {
+  try {
+    if (session) {
+      localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(session));
+      localStorage.setItem(STORAGE_KEYS.ROLE, session.role);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.SESSION);
+    }
+  } catch (e) {
+    console.error('Failed to save session', e);
+  }
+};
+
+export const getStoredRecords = (): LateRecord[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.RECORDS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(INITIAL_LATE_RECORDS));
+      return INITIAL_LATE_RECORDS;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load records from storage', e);
+    return INITIAL_LATE_RECORDS;
+  }
+};
+
+export const saveStoredRecords = (records: LateRecord[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(records));
+  } catch (e) {
+    console.error('Failed to save records to storage', e);
+  }
+};
+
+export const getStoredStudents = (): Student[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS));
+      return INITIAL_STUDENTS;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load students from storage', e);
+    return INITIAL_STUDENTS;
+  }
+};
+
+export const saveStoredStudents = (students: Student[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+  } catch (e) {
+    console.error('Failed to save students to storage', e);
+  }
+};
+
+export const getStoredCounseling = (): CounselingEntry[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.COUNSELING);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify(INITIAL_COUNSELING_ENTRIES));
+      return INITIAL_COUNSELING_ENTRIES;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load counseling logs from storage', e);
+    return INITIAL_COUNSELING_ENTRIES;
+  }
+};
+
+export const saveStoredCounseling = (entries: CounselingEntry[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify(entries));
+  } catch (e) {
+    console.error('Failed to save counseling logs to storage', e);
+  }
+};
+
+export const getStoredRole = (): AppRole => {
+  try {
+    const role = localStorage.getItem(STORAGE_KEYS.ROLE);
+    if (role && ['kesiswaan', 'kepsek', 'kkk', 'walikelas', 'piket'].includes(role)) {
+      return role as AppRole;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return 'kesiswaan';
+};
+
+export const saveStoredRole = (role: AppRole): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ROLE, role);
+  } catch (e) {
+    // ignore
+  }
+};
+
+export const resetAllData = (): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(INITIAL_LATE_RECORDS));
+    localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS));
+    localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify(INITIAL_COUNSELING_ENTRIES));
+  } catch (e) {
+    // ignore
+  }
+};
+
+export const getIndonesianDayName = (dateStr: string): 'Senin' | 'Selasa' | 'Rabu' | 'Kamis' | 'Jumat' => {
+  const date = new Date(dateStr);
+  const dayIndex = date.getDay(); // 0 is Sunday, 1 is Monday ...
+  switch (dayIndex) {
+    case 1: return 'Senin';
+    case 2: return 'Selasa';
+    case 3: return 'Rabu';
+    case 4: return 'Kamis';
+    case 5: return 'Jumat';
+    case 6: return 'Senin'; // fallback
+    default: return 'Senin';
+  }
+};
+
+export const calculateMinutesLate = (timeStr: string, gateClosingTime: string = '07:00'): number => {
+  const [hourStr, minuteStr] = timeStr.split(':');
+  const h = parseInt(hourStr, 10);
+  const m = parseInt(minuteStr, 10);
+  if (isNaN(h) || isNaN(m)) return 0;
+
+  const [gateHStr, gateMStr] = (gateClosingTime || '07:00').split(':');
+  const gh = parseInt(gateHStr, 10) || 7;
+  const gm = parseInt(gateMStr, 10) || 0;
+
+  const currentTotal = h * 60 + m;
+  const schoolStart = gh * 60 + gm;
+  return Math.max(0, currentTotal - schoolStart);
+};
+
+export const formatIndonesianDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+};
+
+export const generateWhatsAppLink = (
+  record: LateRecord, 
+  student: Student, 
+  totalViolations: number,
+  schoolName: string = 'SMK NEGERI 1 JEMBER',
+  schoolAddress: string = 'Jl. Danau Toba No. 16, Jember'
+): string => {
+  const phone = student.parentPhone.replace(/[^0-9]/g, '');
+  const cleanPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
+
+  const text = 
+`*PEMBERITAHUAN KETERLAMBATAN SISWA*
+*${schoolName.toUpperCase()} (TIM KESISWAAN)*
+${schoolAddress}
+
+Kepada Yth.
+Bapak/Ibu Wali dari *${student.name}*
+Kelas: *${student.className}* (NIS: ${student.nis})
+
+Dengan hormat, kami memberitahukan bahwa ananda tiba di sekolah hari ini:
+📅 *Tanggal*: ${formatIndonesianDate(record.date)}
+⏰ *Waktu Tiba*: ${record.time} WIB
+⏱️ *Keterlambatan*: ${record.minutesLate} menit
+⚠️ *Alasan*: ${record.reason}
+🛠️ *Sanksi Edukatif*: ${record.sanction}
+📊 *Riwayat Keterlambatan*: Ke-${totalViolations} semester ini
+
+Mohon Bapak/Ibu memberikan motivasi dan perhatian agar ananda dapat hadir tepat waktu demi pembentukan kedisiplinan dan karakter kerja siswa SMK.
+
+Terima kasih atas perhatian dan kerja samanya.
+
+_Hormat kami,_
+*Tim Kesiswaan ${schoolName}*
+_Aplikasi PATROL SMESA_`;
+
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+};
+
+export const exportToCSV = (records: LateRecord[]): string => {
+  const headers = [
+    'No',
+    'Tanggal',
+    'Hari',
+    'Waktu',
+    'Menit Terlambat',
+    'NIS',
+    'Nama Siswa',
+    'Kelas',
+    'Jurusan',
+    'Semester',
+    'Alasan',
+    'Sanksi Edukatif',
+    'Petugas Pencatat',
+    'Status Pembinaan',
+    'Notifikasi Ortu',
+    'Catatan'
+  ];
+
+  const rows = records.map((rec, index) => [
+    index + 1,
+    rec.date,
+    rec.dayOfWeek,
+    rec.time,
+    rec.minutesLate,
+    `"${rec.studentNis}"`,
+    `"${rec.studentName}"`,
+    `"${rec.className}"`,
+    rec.majorId,
+    `"${rec.semester}"`,
+    `"${rec.reason}"`,
+    `"${rec.sanction}"`,
+    `"${rec.recordedBy}"`,
+    rec.counselingStatus,
+    rec.parentNotified ? 'Sudah' : 'Belum',
+    `"${(rec.notes || '').replace(/"/g, '""')}"`
+  ]);
+
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+};
+
+export const downloadCSV = (records: LateRecord[], filename = 'Laporan_Keterlambatan_SMKN1_Jember.csv'): void => {
+  const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(exportToCSV(records));
+  const link = document.createElement('a');
+  link.setAttribute('href', csvContent);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
