@@ -55,23 +55,32 @@ import {
   seedInitialDataIfEmpty,
   startRealtimeSync,
   saveRecordCloud,
+  saveRecordsBatchCloud,
   deleteRecordCloud,
   saveStudentsBatchCloud,
   deleteStudentCloud,
   saveCounselingCloud,
+  saveCounselingBatchCloud,
   saveAccountCloud,
+  saveAccountsBatchCloud,
   deleteAccountCloud,
   saveMasterGuruBKCloud,
+  saveGuruBKBatchCloud,
   deleteMasterGuruBKCloud,
   saveMasterKKKCloud,
+  saveKKKBatchCloud,
   deleteMasterKKKCloud,
   saveMasterTimKesiswaanCloud,
+  saveTimKesiswaanBatchCloud,
   deleteMasterTimKesiswaanCloud,
   saveMasterMajorCloud,
+  saveMajorsBatchCloud,
   deleteMasterMajorCloud,
   saveMasterClassCloud,
+  saveClassesBatchCloud,
   deleteMasterClassCloud,
   saveSettingsCloud,
+  restoreFullDatabaseToCloud,
   resetViolationsCloud,
   wipeAllCloudData
 } from './utils/firebaseSync';
@@ -270,17 +279,19 @@ export default function App() {
   const handleSaveRecord = (recordData: Omit<LateRecord, 'id' | 'createdAt'>) => {
     const newRecord: LateRecord = {
       ...recordData,
-      id: `rec-${Date.now()}`,
+      id: `rec-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       createdAt: new Date().toISOString(),
     };
 
     const updated = [newRecord, ...records];
     setRecords(updated);
     saveStoredRecords(updated);
-    saveRecordCloud(newRecord).catch((err) => {
+    saveRecordCloud(newRecord).then(() => {
+      triggerToast(`Pelanggaran ${recordData.studentName} tersimpan di Firebase.`);
+    }).catch((err) => {
       console.warn('Cloud save warning (cached locally):', err);
     });
-    triggerToast(`Data keterlambatan ${recordData.studentName} berhasil disimpan otomatis.`);
+    triggerToast(`Data keterlambatan ${recordData.studentName} berhasil dicatat.`);
   };
 
   // Delete record
@@ -292,6 +303,26 @@ export default function App() {
       console.warn('Cloud delete warning:', err);
     });
     triggerToast('Catatan keterlambatan berhasil dihapus.');
+  };
+
+  // Import batch records (Otomatis terekam ke Firebase Firestore)
+  const handleImportRecords = (newRecords: LateRecord[], mode: 'append' | 'replace' = 'append') => {
+    let updated: LateRecord[] = [];
+    if (mode === 'replace') {
+      updated = newRecords;
+    } else {
+      const existingIds = new Set(records.map((r) => r.id));
+      const filtered = newRecords.filter((r) => !existingIds.has(r.id));
+      updated = [...filtered, ...records];
+    }
+    setRecords(updated);
+    saveStoredRecords(updated);
+    saveRecordsBatchCloud(newRecords).then(() => {
+      triggerToast(`Berhasil merekam ${newRecords.length} data pelanggaran langsung ke database Firebase!`);
+    }).catch((err) => {
+      console.warn('Batch cloud save records warning:', err);
+      triggerToast(`Data tersimpan lokal, proses sinkronisasi database Firebase sedang berjalan.`);
+    });
   };
 
   // Update counseling status
@@ -315,15 +346,17 @@ export default function App() {
   const handleAddCounselingEntry = (entryData: Omit<CounselingEntry, 'id'>) => {
     const newEntry: CounselingEntry = {
       ...entryData,
-      id: `csl-${Date.now()}`,
+      id: `csl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     };
     const updated = [newEntry, ...counselingEntries];
     setCounselingEntries(updated);
     saveStoredCounseling(updated);
-    saveCounselingCloud(newEntry).catch((err) => {
+    saveCounselingCloud(newEntry).then(() => {
+      triggerToast(`Sesi konseling ${entryData.studentName} tersimpan di Firebase.`);
+    }).catch((err) => {
       console.warn('Cloud counseling save warning:', err);
     });
-    triggerToast(`Sesi konseling untuk ${entryData.studentName} berhasil dicatat realtime.`);
+    triggerToast(`Sesi konseling untuk ${entryData.studentName} berhasil dicatat.`);
   };
 
   // Print Call Letter triggers
@@ -384,7 +417,7 @@ export default function App() {
 
     setMajors(newList);
     saveStoredMajors(newList);
-    newList.forEach((m) => saveMasterMajorCloud(m).catch(console.warn));
+    saveMajorsBatchCloud(newList).catch(console.warn);
   };
 
   const handleUpdateClasses = (newList: SchoolClass[]) => {
@@ -395,7 +428,7 @@ export default function App() {
 
     setSchoolClasses(newList);
     saveStoredClasses(newList);
-    newList.forEach((c) => saveMasterClassCloud(c).catch(console.warn));
+    saveClassesBatchCloud(newList).catch(console.warn);
   };
 
   const handleUpdateGuruBK = (newList: GuruBK[]) => {
@@ -406,7 +439,7 @@ export default function App() {
 
     setGuruBK(newList);
     saveStoredGuruBK(newList);
-    newList.forEach((g) => saveMasterGuruBKCloud(g).catch(console.warn));
+    saveGuruBKBatchCloud(newList).catch(console.warn);
   };
 
   const handleUpdateKKK = (newList: KKK[]) => {
@@ -417,7 +450,7 @@ export default function App() {
 
     setKKKList(newList);
     saveStoredKKK(newList);
-    newList.forEach((k) => saveMasterKKKCloud(k).catch(console.warn));
+    saveKKKBatchCloud(newList).catch(console.warn);
   };
 
   const handleUpdateTimKesiswaan = (newList: TimKesiswaan[]) => {
@@ -428,7 +461,7 @@ export default function App() {
 
     setTimKesiswaan(newList);
     saveStoredTimKesiswaan(newList);
-    newList.forEach((t) => saveMasterTimKesiswaanCloud(t).catch(console.warn));
+    saveTimKesiswaanBatchCloud(newList).catch(console.warn);
   };
 
   const handleUpdateAccounts = (newList: UserAccount[]) => {
@@ -439,7 +472,7 @@ export default function App() {
 
     setAccounts(newList);
     saveStoredAccounts(newList);
-    newList.forEach((a) => saveAccountCloud(a).catch(console.warn));
+    saveAccountsBatchCloud(newList).catch(console.warn);
   };
 
   // Reset Violations only
@@ -468,10 +501,10 @@ export default function App() {
     triggerToast('File backup data (JSON) berhasil diunduh ke PC.');
   };
 
-  // Restore Data (JSON)
+  // Restore Data (JSON) - Otomatis langsung terekam ke database Firebase
   const handleRestoreData = (file: File) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const parsed = JSON.parse(text);
@@ -487,7 +520,15 @@ export default function App() {
           setSchoolClasses(getStoredClasses());
           setAccounts(getStoredAccounts());
           setSettings(getStoredSettings());
-          triggerToast('Basis data sistem berhasil dipulihkan dari file backup!');
+
+          triggerToast('Merekam seluruh data pemulihan ke database Firebase...');
+          try {
+            await restoreFullDatabaseToCloud(parsed);
+            triggerToast('Pemulihan sukses: Seluruh data otomatis terekam permanen di Firebase!');
+          } catch (cloudErr) {
+            console.error('Kendala sinkronisasi Firebase saat restore:', cloudErr);
+            triggerToast('Data tersimpan lokal, proses sinkronisasi database Firebase sedang berjalan.');
+          }
         } else {
           triggerToast('Gagal memulihkan: Format backup tidak dikenali.');
         }
@@ -496,6 +537,29 @@ export default function App() {
       }
     };
     reader.readAsText(file);
+  };
+
+  // Sinkronisasi manual seluruh data lokal ke Firebase Firestore
+  const handleSyncAllToCloud = async () => {
+    triggerToast('Merekam seluruh data lokal ke database Firebase...');
+    try {
+      await restoreFullDatabaseToCloud({
+        records,
+        students,
+        counseling: counselingEntries,
+        guruBK,
+        kkk: kkkList,
+        timKesiswaan,
+        majors,
+        classes: schoolClasses,
+        accounts,
+        settings,
+      });
+      triggerToast('Seluruh data transaksi & master berhasil terekam ke database Firebase!');
+    } catch (err) {
+      console.error('Gagal sinkronisasi data ke Firebase:', err);
+      triggerToast('Gagal merekam ke Firebase. Periksa koneksi internet/status database.');
+    }
   };
 
   // Save settings handler
@@ -584,6 +648,7 @@ export default function App() {
             onDeleteRecord={handleDeleteRecord}
             onUpdateStatus={handleUpdateStatus}
             onPrintCallLetter={handlePrintCallLetter}
+            onImportRecords={handleImportRecords}
           />
         )}
 
@@ -673,6 +738,7 @@ export default function App() {
               onWipeAllData={handleWipeAllData}
               onBackupData={handleBackupData}
               onRestoreData={handleRestoreData}
+              onSyncAllToCloud={handleSyncAllToCloud}
             />
           ) : (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 max-w-lg mx-auto text-center shadow-xs transition-colors my-12">

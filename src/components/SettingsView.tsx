@@ -41,6 +41,7 @@ interface SettingsViewProps {
   onWipeAllData?: () => void;
   onBackupData?: () => void;
   onRestoreData?: (file: File) => void;
+  onSyncAllToCloud?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -53,6 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onWipeAllData,
   onBackupData,
   onRestoreData,
+  onSyncAllToCloud,
 }) => {
   const [form, setForm] = useState<AppSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
@@ -257,6 +259,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <RefreshCw className={`w-3.5 h-3.5 ${isPinging ? 'animate-spin' : ''}`} />
               <span>{isPinging ? 'Memeriksa...' : 'Cek Status / Re-sync'}</span>
             </button>
+            {onSyncAllToCloud && (
+              <button
+                type="button"
+                onClick={onSyncAllToCloud}
+                disabled={syncStatus.isSyncing}
+                className="px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+              >
+                <Cloud className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>{syncStatus.isSyncing ? 'Merekam ke Cloud...' : 'Sinkronkan Semua Data ke Firebase'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -358,7 +371,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Upload className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:-translate-y-0.5 transition-transform" />
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Muat kembali data dari file cadangan JSON yang telah disimpan sebelumnya.
+              Muat kembali data dari file cadangan JSON dan langsung terekam otomatis ke database Firebase.
             </p>
           </button>
 

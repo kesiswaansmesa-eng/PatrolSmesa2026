@@ -321,6 +321,28 @@ export function stopRealtimeSync(): void {
 
 // ================= CLOUD MUTATION ACTIONS ================= //
 
+/**
+ * Safely commit batch writes in chunks of up to 400 documents to respect Firestore limits (max 500 per batch).
+ */
+async function commitBatchChunks<T extends Record<string, any>>(
+  collectionName: string,
+  items: T[],
+  getId: (item: T) => string
+): Promise<void> {
+  const CHUNK_SIZE = 400;
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    const batch = writeBatch(db);
+    chunk.forEach((item) => {
+      const id = getId(item);
+      if (id) {
+        batch.set(doc(db, collectionName, id), item, { merge: true });
+      }
+    });
+    await batch.commit();
+  }
+}
+
 export async function saveRecordCloud(record: LateRecord): Promise<void> {
   const path = `records/${record.id}`;
   try {
@@ -330,6 +352,18 @@ export async function saveRecordCloud(record: LateRecord): Promise<void> {
   } catch (error) {
     updateStatus({ isSyncing: false });
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function saveRecordsBatchCloud(records: LateRecord[]): Promise<void> {
+  if (!records || records.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('records', records, (r) => r.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'records');
   }
 }
 
@@ -358,13 +392,10 @@ export async function saveStudentCloud(student: Student): Promise<void> {
 }
 
 export async function saveStudentsBatchCloud(students: Student[]): Promise<void> {
+  if (!students || students.length === 0) return;
   try {
     updateStatus({ isSyncing: true });
-    const batch = writeBatch(db);
-    students.forEach((s) => {
-      batch.set(doc(db, 'students', s.id), s, { merge: true });
-    });
-    await batch.commit();
+    await commitBatchChunks('students', students, (s) => s.id);
     updateStatus({ isSyncing: false, lastSync: new Date() });
   } catch (error) {
     updateStatus({ isSyncing: false });
@@ -396,6 +427,18 @@ export async function saveCounselingCloud(entry: CounselingEntry): Promise<void>
   }
 }
 
+export async function saveCounselingBatchCloud(entries: CounselingEntry[]): Promise<void> {
+  if (!entries || entries.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('counseling', entries, (c) => c.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'counseling');
+  }
+}
+
 export async function deleteCounselingCloud(id: string): Promise<void> {
   const path = `counseling/${id}`;
   try {
@@ -420,6 +463,18 @@ export async function saveAccountCloud(account: UserAccount): Promise<void> {
   }
 }
 
+export async function saveAccountsBatchCloud(accounts: UserAccount[]): Promise<void> {
+  if (!accounts || accounts.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('accounts', accounts, (a) => a.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'accounts');
+  }
+}
+
 export async function deleteAccountCloud(accountId: string): Promise<void> {
   const path = `accounts/${accountId}`;
   try {
@@ -441,6 +496,18 @@ export async function saveMasterGuruBKCloud(item: GuruBK): Promise<void> {
   }
 }
 
+export async function saveGuruBKBatchCloud(items: GuruBK[]): Promise<void> {
+  if (!items || items.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('guruBK', items, (g) => g.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'guruBK');
+  }
+}
+
 export async function deleteMasterGuruBKCloud(id: string): Promise<void> {
   const path = `guruBK/${id}`;
   try {
@@ -456,6 +523,18 @@ export async function saveMasterKKKCloud(item: KKK): Promise<void> {
     await setDoc(doc(db, 'kkk', item.id), item, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function saveKKKBatchCloud(items: KKK[]): Promise<void> {
+  if (!items || items.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('kkk', items, (k) => k.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'kkk');
   }
 }
 
@@ -477,6 +556,18 @@ export async function saveMasterTimKesiswaanCloud(item: TimKesiswaan): Promise<v
   }
 }
 
+export async function saveTimKesiswaanBatchCloud(items: TimKesiswaan[]): Promise<void> {
+  if (!items || items.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('timKesiswaan', items, (t) => t.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'timKesiswaan');
+  }
+}
+
 export async function deleteMasterTimKesiswaanCloud(id: string): Promise<void> {
   const path = `timKesiswaan/${id}`;
   try {
@@ -495,6 +586,18 @@ export async function saveMasterMajorCloud(item: Major): Promise<void> {
   }
 }
 
+export async function saveMajorsBatchCloud(items: Major[]): Promise<void> {
+  if (!items || items.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('majors', items, (m) => m.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'majors');
+  }
+}
+
 export async function deleteMasterMajorCloud(id: string): Promise<void> {
   const path = `majors/${id}`;
   try {
@@ -504,50 +607,24 @@ export async function deleteMasterMajorCloud(id: string): Promise<void> {
   }
 }
 
-export async function resetViolationsCloud(): Promise<void> {
-  try {
-    updateStatus({ isSyncing: true });
-    const recordsSnap = await getDocs(collection(db, 'records'));
-    const counselingSnap = await getDocs(collection(db, 'counseling'));
-    const batch = writeBatch(db);
-    recordsSnap.forEach((d) => batch.delete(d.ref));
-    counselingSnap.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-    updateStatus({ isSyncing: false, lastSync: new Date() });
-  } catch (error) {
-    updateStatus({ isSyncing: false });
-    handleFirestoreError(error, OperationType.DELETE, 'records/counseling');
-  }
-}
-
-export async function wipeAllCloudData(): Promise<void> {
-  try {
-    updateStatus({ isSyncing: true });
-    const [recSnap, cslSnap, stdSnap, clsSnap] = await Promise.all([
-      getDocs(collection(db, 'records')),
-      getDocs(collection(db, 'counseling')),
-      getDocs(collection(db, 'students')),
-      getDocs(collection(db, 'classes')),
-    ]);
-    const batch = writeBatch(db);
-    recSnap.forEach((d) => batch.delete(d.ref));
-    cslSnap.forEach((d) => batch.delete(d.ref));
-    stdSnap.forEach((d) => batch.delete(d.ref));
-    clsSnap.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-    updateStatus({ isSyncing: false, lastSync: new Date() });
-  } catch (error) {
-    updateStatus({ isSyncing: false });
-    handleFirestoreError(error, OperationType.DELETE, 'operational-data');
-  }
-}
-
 export async function saveMasterClassCloud(item: SchoolClass): Promise<void> {
   const path = `classes/${item.id}`;
   try {
     await setDoc(doc(db, 'classes', item.id), item, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function saveClassesBatchCloud(items: SchoolClass[]): Promise<void> {
+  if (!items || items.length === 0) return;
+  try {
+    updateStatus({ isSyncing: true });
+    await commitBatchChunks('classes', items, (c) => c.id);
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'classes');
   }
 }
 
@@ -569,5 +646,97 @@ export async function saveSettingsCloud(settings: AppSettings): Promise<void> {
   } catch (error) {
     updateStatus({ isSyncing: false });
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Pemulihan Data Master & Transaksi: Menyimpan seluruh koleksi data backup langsung ke Firebase Firestore.
+ */
+export async function restoreFullDatabaseToCloud(backupData: any): Promise<void> {
+  if (!backupData || typeof backupData !== 'object') return;
+  updateStatus({ isSyncing: true });
+  try {
+    if (Array.isArray(backupData.records) && backupData.records.length > 0) {
+      await commitBatchChunks('records', backupData.records, (r: LateRecord) => r.id);
+    }
+    if (Array.isArray(backupData.students) && backupData.students.length > 0) {
+      await commitBatchChunks('students', backupData.students, (s: Student) => s.id);
+    }
+    if (Array.isArray(backupData.counseling) && backupData.counseling.length > 0) {
+      await commitBatchChunks('counseling', backupData.counseling, (c: CounselingEntry) => c.id);
+    }
+    if (Array.isArray(backupData.guruBK) && backupData.guruBK.length > 0) {
+      await commitBatchChunks('guruBK', backupData.guruBK, (g: GuruBK) => g.id);
+    }
+    if (Array.isArray(backupData.kkk) && backupData.kkk.length > 0) {
+      await commitBatchChunks('kkk', backupData.kkk, (k: KKK) => k.id);
+    }
+    if (Array.isArray(backupData.timKesiswaan) && backupData.timKesiswaan.length > 0) {
+      await commitBatchChunks('timKesiswaan', backupData.timKesiswaan, (t: TimKesiswaan) => t.id);
+    }
+    if (Array.isArray(backupData.majors) && backupData.majors.length > 0) {
+      await commitBatchChunks('majors', backupData.majors, (m: Major) => m.id);
+    }
+    if (Array.isArray(backupData.classes) && backupData.classes.length > 0) {
+      await commitBatchChunks('classes', backupData.classes, (c: SchoolClass) => c.id);
+    }
+    if (Array.isArray(backupData.accounts) && backupData.accounts.length > 0) {
+      await commitBatchChunks('accounts', backupData.accounts, (a: UserAccount) => a.id);
+    }
+    if (backupData.settings && typeof backupData.settings === 'object') {
+      await setDoc(doc(db, 'settings', 'school_settings'), backupData.settings, { merge: true });
+    }
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.WRITE, 'restore-full-database');
+  }
+}
+
+export async function resetViolationsCloud(): Promise<void> {
+  try {
+    updateStatus({ isSyncing: true });
+    const recordsSnap = await getDocs(collection(db, 'records'));
+    const counselingSnap = await getDocs(collection(db, 'counseling'));
+    const allRefs = [...recordsSnap.docs.map((d) => d.ref), ...counselingSnap.docs.map((d) => d.ref)];
+    
+    for (let i = 0; i < allRefs.length; i += 400) {
+      const chunk = allRefs.slice(i, i + 400);
+      const batch = writeBatch(db);
+      chunk.forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.DELETE, 'records/counseling');
+  }
+}
+
+export async function wipeAllCloudData(): Promise<void> {
+  try {
+    updateStatus({ isSyncing: true });
+    const [recSnap, cslSnap, stdSnap, clsSnap] = await Promise.all([
+      getDocs(collection(db, 'records')),
+      getDocs(collection(db, 'counseling')),
+      getDocs(collection(db, 'students')),
+      getDocs(collection(db, 'classes')),
+    ]);
+    const allRefs = [
+      ...recSnap.docs.map((d) => d.ref),
+      ...cslSnap.docs.map((d) => d.ref),
+      ...stdSnap.docs.map((d) => d.ref),
+      ...clsSnap.docs.map((d) => d.ref),
+    ];
+    for (let i = 0; i < allRefs.length; i += 400) {
+      const chunk = allRefs.slice(i, i + 400);
+      const batch = writeBatch(db);
+      chunk.forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.DELETE, 'operational-data');
   }
 }
