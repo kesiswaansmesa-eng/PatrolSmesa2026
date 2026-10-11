@@ -23,6 +23,7 @@ import {
 interface DashboardViewProps {
   records: LateRecord[];
   students: Student[];
+  majors?: Major[];
   activeRole: AppRole;
   onOpenQuickRecord: () => void;
   onNavigateToTab: (tab: string) => void;
@@ -34,6 +35,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   records,
   students,
+  majors = [],
   activeRole,
   onOpenQuickRecord,
   onNavigateToTab,
@@ -105,27 +107,83 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .slice(0, 5);
 
   // Major late counts & ranking (Grafik Jurusan Paling Banyak Terlambat)
-  const majorRecordCounts: Record<string, number> = {};
-  const majorStudentCounts: Record<string, Set<string>> = {};
-  MAJORS.forEach((m) => {
-    majorRecordCounts[m.id] = 0;
-    majorStudentCounts[m.id] = new Set();
-  });
+  // Diambilkan dan digenerate otomatis mengikuti data konsentrasi keahlian & keterlambatan di database
+  const dynamicMajorsMap = new Map<string, Major>();
 
-  filteredRecords.forEach((r) => {
-    if (majorRecordCounts[r.majorId] !== undefined) {
-      majorRecordCounts[r.majorId]++;
-      majorStudentCounts[r.majorId].add(r.studentId);
+  // 1. Ambil data konsentrasi keahlian yang tersimpan di database
+  if (majors && majors.length > 0) {
+    majors.forEach((m) => {
+      dynamicMajorsMap.set(m.id, m);
+    });
+  }
+
+  // 2. Deteksi jurusan dari data siswa di database jika belum terdaftar
+  students.forEach((s) => {
+    if (s.majorId && !dynamicMajorsMap.has(s.majorId)) {
+      dynamicMajorsMap.set(s.majorId, {
+        id: s.majorId,
+        code: s.majorId,
+        name: s.majorId,
+        kaprodi: '-',
+        color: '#3b82f6',
+      });
     }
   });
 
-  const rankedMajors = MAJORS.map((m) => ({
+  // 3. Deteksi jurusan dari data keterlambatan di database
+  filteredRecords.forEach((r) => {
+    if (r.majorId && !dynamicMajorsMap.has(r.majorId)) {
+      dynamicMajorsMap.set(r.majorId, {
+        id: r.majorId,
+        code: r.majorId,
+        name: r.majorId,
+        kaprodi: '-',
+        color: '#6366f1',
+      });
+    }
+  });
+
+  const allDatabaseMajors = Array.from(dynamicMajorsMap.values());
+  const majorRecordCounts: Record<string, number> = {};
+  const majorStudentCounts: Record<string, Set<string>> = {};
+  const majorTotalMinutes: Record<string, number> = {};
+
+  allDatabaseMajors.forEach((m) => {
+    majorRecordCounts[m.id] = 0;
+    majorStudentCounts[m.id] = new Set();
+    majorTotalMinutes[m.id] = 0;
+  });
+
+  filteredRecords.forEach((r) => {
+    if (r.majorId) {
+      if (!majorRecordCounts[r.majorId]) {
+        majorRecordCounts[r.majorId] = 0;
+        majorStudentCounts[r.majorId] = new Set();
+        majorTotalMinutes[r.majorId] = 0;
+      }
+      majorRecordCounts[r.majorId] = (majorRecordCounts[r.majorId] || 0) + 1;
+      majorStudentCounts[r.majorId].add(r.studentId);
+      majorTotalMinutes[r.majorId] = (majorTotalMinutes[r.majorId] || 0) + (r.minutesLate || 0);
+    }
+  });
+
+  // Urutan konsentrasi keahlian dengan frekuensi keterlambatan tertinggi di SMKN 1 Jember
+  const rankedMajors = allDatabaseMajors.map((m) => ({
     major: m,
     totalRecords: majorRecordCounts[m.id] || 0,
     uniqueStudents: majorStudentCounts[m.id]?.size || 0,
-  })).sort((a, b) => b.totalRecords - a.totalRecords);
+    totalMinutes: majorTotalMinutes[m.id] || 0,
+  })).sort((a, b) => {
+    if (b.totalRecords !== a.totalRecords) {
+      return b.totalRecords - a.totalRecords;
+    }
+    if (b.uniqueStudents !== a.uniqueStudents) {
+      return b.uniqueStudents - a.uniqueStudents;
+    }
+    return a.major.code.localeCompare(b.major.code);
+  });
 
-  const maxMajorRecords = Math.max(...rankedMajors.map((m) => m.totalRecords), 1);
+  const maxMajorRecords = Math.max(...rankedMajors.map((m) => m.totalRecords), 0);
 
   // Class late counts & Zero Late identification
   const allClassNames = Array.from(new Set(students.map((s) => s.className))).sort();
@@ -281,55 +339,74 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Urutan konsentrasi keahlian dengan frekuensi keterlambatan tertinggi di SMKN 1 Jember
               </p>
             </div>
-            <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded">
-              Puncak: {rankedMajors[0]?.major.code}
-            </span>
+            {rankedMajors.length > 0 && maxMajorRecords > 0 ? (
+              <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                Puncak: {rankedMajors[0]?.major.code} ({rankedMajors[0]?.totalRecords}x)
+              </span>
+            ) : (
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
+                0 Kasus Keterlambatan
+              </span>
+            )}
           </div>
 
-          <div className="space-y-3.5 pt-1">
-            {rankedMajors.map((item, idx) => {
-              const pct = Math.round((item.totalRecords / maxMajorRecords) * 100);
-              const shareOfAll = Math.round((item.totalRecords / (filteredRecords.length || 1)) * 100);
-              const isTop = idx === 0;
+          {rankedMajors.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+              Belum ada data konsentrasi keahlian di database.
+            </div>
+          ) : (
+            <div className="space-y-3.5 pt-1">
+              {rankedMajors.map((item, idx) => {
+                const pct = maxMajorRecords > 0 ? Math.round((item.totalRecords / maxMajorRecords) * 100) : 0;
+                const shareOfAll = filteredRecords.length > 0 ? Math.round((item.totalRecords / filteredRecords.length) * 100) : 0;
+                const isTop = idx === 0 && item.totalRecords > 0;
 
-              return (
-                <div key={item.major.id} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-slate-400 w-5">#{idx + 1}</span>
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: item.major.color }}
+                return (
+                  <div key={item.major.id} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-slate-400 w-5">#{idx + 1}</span>
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: item.major.color || '#3b82f6' }}
+                        />
+                        <span className={`font-semibold ${isTop ? 'text-red-700' : 'text-slate-800'}`}>
+                          {item.major.code} - {item.major.name.split('(')[0].trim()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {item.uniqueStudents} siswa unik
+                        </span>
+                        <span className="font-mono tabular-nums font-bold text-slate-900">
+                          {item.totalRecords}x ({shareOfAll}%)
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          item.totalRecords === 0
+                            ? 'bg-transparent'
+                            : isTop
+                            ? 'bg-red-500'
+                            : idx === 1
+                            ? 'bg-orange-500'
+                            : 'bg-blue-600'
+                        }`}
+                        style={{ width: `${item.totalRecords === 0 ? 0 : Math.max(pct, 5)}%` }}
                       />
-                      <span className={`font-semibold ${isTop ? 'text-red-700' : 'text-slate-800'}`}>
-                        {item.major.code} - {item.major.name.split('(')[0]}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-slate-500 font-mono">
-                        {item.uniqueStudents} siswa unik
-                      </span>
-                      <span className="font-mono tabular-nums font-bold text-slate-900">
-                        {item.totalRecords}x ({shareOfAll}%)
-                      </span>
                     </div>
                   </div>
-
-                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isTop ? 'bg-red-500' : idx === 1 ? 'bg-orange-500' : 'bg-blue-600'
-                      }`}
-                      style={{ width: `${Math.max(pct, 5)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
             <span>Kaprodi terkait diwajibkan melakukan koordinasi dengan wali kelas binaan.</span>
+            <span className="text-[11px] font-medium text-blue-600">Otomatis dari Database</span>
           </div>
         </div>
 
@@ -352,23 +429,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
 
             {/* Showcase Jurusan Paling Tertib */}
-            <div className="mt-4 p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Jurusan Paling Tertib (Minim Terlambat):</span>
-                </span>
-                <span className="font-mono font-bold text-emerald-800 text-xs">
-                  Hanya {leastLateMajors[0]?.totalRecords} Kasus
-                </span>
+            {leastLateMajors.length > 0 && (
+              <div className="mt-4 p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Jurusan Paling Tertib (Minim Terlambat):</span>
+                  </span>
+                  <span className="font-mono font-bold text-emerald-800 text-xs">
+                    {leastLateMajors[0]?.totalRecords === 0 ? 'Nihil Keterlambatan' : `Hanya ${leastLateMajors[0]?.totalRecords} Kasus`}
+                  </span>
+                </div>
+                <div className="font-bold text-sm text-slate-900">
+                  {leastLateMajors[0]?.major.name} ({leastLateMajors[0]?.major.code})
+                </div>
+                {leastLateMajors.length > 1 && (
+                  <p className="text-[11px] text-emerald-800 leading-snug">
+                    Disusul oleh {leastLateMajors[1]?.major.code} ({leastLateMajors[1]?.totalRecords ?? 0}x)
+                    {leastLateMajors[2] ? ` dan ${leastLateMajors[2]?.major.code} (${leastLateMajors[2]?.totalRecords ?? 0}x)` : ''}.
+                  </p>
+                )}
               </div>
-              <div className="font-bold text-sm text-slate-900">
-                {leastLateMajors[0]?.major.name} ({leastLateMajors[0]?.major.code})
-              </div>
-              <p className="text-[11px] text-emerald-800 leading-snug">
-                Disusul oleh {leastLateMajors[1]?.major.code} ({leastLateMajors[1]?.totalRecords}x) dan {leastLateMajors[2]?.major.code} ({leastLateMajors[2]?.totalRecords}x).
-              </p>
-            </div>
+            )}
 
             {/* Kelas-Kelas Zero Late */}
             <div className="mt-4 space-y-2">

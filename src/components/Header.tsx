@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SchoolLogo } from './SchoolLogo';
-import { AppRole, UserSession, AppSettings } from '../types/patrol';
+import { AppRole, UserSession, AppSettings, Major } from '../types/patrol';
 import { subscribeSyncStatus, CloudSyncStatus } from '../utils/firebaseSync';
 import { 
   LayoutDashboard, 
@@ -33,6 +33,7 @@ interface HeaderProps {
   userSession?: UserSession | null;
   onLogout?: () => void;
   settings?: AppSettings;
+  majors?: Major[];
   selectedMajorFilter?: string;
   onChangeMajorFilter?: (majorId: string) => void;
   selectedClassFilter?: string;
@@ -51,6 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
   userSession,
   onLogout,
   settings,
+  majors = [],
   selectedMajorFilter,
   onChangeMajorFilter,
   selectedClassFilter,
@@ -371,13 +373,11 @@ export const Header: React.FC<HeaderProps> = ({
                 className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-blue-500 font-medium"
               >
                 <option value="ALL">Semua Jurusan</option>
-                <option value="RPL">PPLG / Rekayasa Perangkat Lunak</option>
-                <option value="AKL">Akuntansi & Keuangan Lembaga</option>
-                <option value="MPLB">Manajemen Perkantoran (MPLB)</option>
-                <option value="BD">Bisnis Digital & Pemasaran</option>
-                <option value="DKV">Desain Komunikasi Visual</option>
-                <option value="KL">Kuliner (Tata Boga)</option>
-                <option value="HTL">Perhotelan</option>
+                {majors.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.code} - {m.name}
+                  </option>
+                ))}
               </select>
             </div>
           )}

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { LateRecord, Student, MajorId, getViolationTier } from '../types/patrol';
-import { MAJORS } from '../data/initialData';
+import { LateRecord, Student, Major, MajorId, getViolationTier } from '../types/patrol';
 import { 
   BarChart3, 
   Users, 
@@ -21,11 +20,12 @@ import {
 interface AnalyticsViewProps {
   records: LateRecord[];
   students: Student[];
+  majors?: Major[];
 }
 
 type AnalyticsSubTab = 'siswa' | 'kelas' | 'jurusan' | 'hari' | 'waktu' | 'alasan' | 'semester';
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ records, students }) => {
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ records, students, majors = [] }) => {
   const [activeSubTab, setActiveSubTab] = useState<AnalyticsSubTab>('siswa');
   const [semesterFilter, setSemesterFilter] = useState<string>('ALL');
 
@@ -82,18 +82,62 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ records, students 
   });
   const sortedClassStats = Object.values(classStatsMap).sort((a, b) => b.count - a.count);
 
-  // 3. Group by Major
-  const majorStatsMap: Record<string, { major: (typeof MAJORS)[0]; count: number; totalMinutes: number }> = {};
-  MAJORS.forEach((m) => {
+  // 3. Group by Major (Diambil dan digenerate otomatis mengikuti data di database)
+  const dynamicMajorsMap = new Map<string, Major>();
+  if (majors && majors.length > 0) {
+    majors.forEach((m) => dynamicMajorsMap.set(m.id, m));
+  }
+  students.forEach((s) => {
+    if (s.majorId && !dynamicMajorsMap.has(s.majorId)) {
+      dynamicMajorsMap.set(s.majorId, {
+        id: s.majorId,
+        code: s.majorId,
+        name: s.majorId,
+        kaprodi: '-',
+        color: '#3b82f6',
+      });
+    }
+  });
+  activeRecords.forEach((r) => {
+    if (r.majorId && !dynamicMajorsMap.has(r.majorId)) {
+      dynamicMajorsMap.set(r.majorId, {
+        id: r.majorId,
+        code: r.majorId,
+        name: r.majorId,
+        kaprodi: '-',
+        color: '#6366f1',
+      });
+    }
+  });
+
+  const allAvailableMajors = Array.from(dynamicMajorsMap.values());
+  const majorStatsMap: Record<string, { major: Major; count: number; totalMinutes: number }> = {};
+  allAvailableMajors.forEach((m) => {
     majorStatsMap[m.id] = { major: m, count: 0, totalMinutes: 0 };
   });
   activeRecords.forEach((r) => {
-    if (majorStatsMap[r.majorId]) {
+    if (r.majorId) {
+      if (!majorStatsMap[r.majorId]) {
+        majorStatsMap[r.majorId] = {
+          major: dynamicMajorsMap.get(r.majorId) || {
+            id: r.majorId,
+            code: r.majorId,
+            name: r.majorId,
+            kaprodi: '-',
+            color: '#6366f1',
+          },
+          count: 0,
+          totalMinutes: 0,
+        };
+      }
       majorStatsMap[r.majorId].count += 1;
-      majorStatsMap[r.majorId].totalMinutes += r.minutesLate;
+      majorStatsMap[r.majorId].totalMinutes += (r.minutesLate || 0);
     }
   });
-  const sortedMajorStats = Object.values(majorStatsMap).sort((a, b) => b.count - a.count);
+  const sortedMajorStats = Object.values(majorStatsMap).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.major.code.localeCompare(b.major.code);
+  });
 
   // 4. Group by Day of Week
   const dayStats: Record<string, number> = { Senin: 0, Selasa: 0, Rabu: 0, Kamis: 0, Jumat: 0 };
@@ -405,51 +449,69 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ records, students 
                   </h2>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Visualisasi perbandingan total kasus keterlambatan antar konsentrasi keahlian di SMKN 1 Jember
+                  Visualisasi perbandingan total kasus keterlambatan antar konsentrasi keahlian di SMKN 1 Jember (Otomatis dari Database)
                 </p>
               </div>
-              <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded">
-                Tertinggi: {sortedMajorStats[0]?.major.code}
-              </span>
+              {sortedMajorStats.length > 0 && sortedMajorStats[0].count > 0 ? (
+                <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                  Tertinggi: {sortedMajorStats[0]?.major.code} ({sortedMajorStats[0]?.count}x)
+                </span>
+              ) : (
+                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded">
+                  0 Kasus Keterlambatan
+                </span>
+              )}
             </div>
 
-            <div className="space-y-3 pt-2">
-              {sortedMajorStats.map((item, idx) => {
-                const maxMajor = Math.max(...sortedMajorStats.map((m) => m.count), 1);
-                const pct = Math.round((item.count / maxMajor) * 100);
-                const shareOfAll = Math.round((item.count / (activeRecords.length || 1)) * 100);
-                const isTop = idx === 0;
+            {sortedMajorStats.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                Belum ada data konsentrasi keahlian di database.
+              </div>
+            ) : (
+              <div className="space-y-3 pt-2">
+                {sortedMajorStats.map((item, idx) => {
+                  const maxMajor = Math.max(...sortedMajorStats.map((m) => m.count), 0);
+                  const pct = maxMajor > 0 ? Math.round((item.count / maxMajor) * 100) : 0;
+                  const shareOfAll = activeRecords.length > 0 ? Math.round((item.count / activeRecords.length) * 100) : 0;
+                  const isTop = idx === 0 && item.count > 0;
 
-                return (
-                  <div key={item.major.id} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-slate-400 w-5">#{idx + 1}</span>
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: item.major.color }}
-                        />
-                        <span className={`font-semibold ${isTop ? 'text-red-700' : 'text-slate-800'}`}>
-                          {item.major.code} - {item.major.name}
+                  return (
+                    <div key={item.major.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-400 w-5">#{idx + 1}</span>
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: item.major.color || '#3b82f6' }}
+                          />
+                          <span className={`font-semibold ${isTop ? 'text-red-700' : 'text-slate-800'}`}>
+                            {item.major.code} - {item.major.name}
+                          </span>
+                        </div>
+                        <span className="font-mono tabular-nums font-bold text-slate-900">
+                          {item.count} kejadian ({shareOfAll}%)
                         </span>
                       </div>
-                      <span className="font-mono tabular-nums font-bold text-slate-900">
-                        {item.count} kejadian ({shareOfAll}%)
-                      </span>
-                    </div>
 
-                    <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isTop ? 'bg-red-500' : idx === 1 ? 'bg-orange-500' : 'bg-blue-600'
-                        }`}
-                        style={{ width: `${Math.max(pct, 5)}%` }}
-                      />
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            item.count === 0
+                              ? 'bg-transparent'
+                              : isTop
+                              ? 'bg-red-500'
+                              : idx === 1
+                              ? 'bg-orange-500'
+                              : 'bg-blue-600'
+                          }`}
+                          style={{ width: `${item.count === 0 ? 0 : Math.max(pct, 5)}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Cards Jurusan Detail */}

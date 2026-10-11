@@ -548,6 +548,7 @@ export default function App() {
         userSession={userSession}
         onLogout={handleLogout}
         settings={settings}
+        majors={majors}
         selectedMajorFilter={selectedMajorFilter}
         onChangeMajorFilter={setSelectedMajorFilter}
         selectedClassFilter={selectedClassFilter}
@@ -563,6 +564,7 @@ export default function App() {
           <DashboardView
             records={records}
             students={students}
+            majors={majors}
             activeRole={activeRole}
             onOpenQuickRecord={() => setQuickRecordModalOpen(true)}
             onNavigateToTab={setCurrentTab}
@@ -586,7 +588,7 @@ export default function App() {
         )}
 
         {currentTab === 'analisis' && (
-          <AnalyticsView records={records} students={students} />
+          <AnalyticsView records={records} students={students} majors={majors} />
         )}
 
         {currentTab === 'pembinaan' && (
@@ -604,7 +606,7 @@ export default function App() {
         )}
 
         {currentTab === 'laporan' && (
-          <LaporanView records={records} students={students} settings={settings} />
+          <LaporanView records={records} students={students} majors={majors} settings={settings} />
         )}
 
         {currentTab === 'master' && (

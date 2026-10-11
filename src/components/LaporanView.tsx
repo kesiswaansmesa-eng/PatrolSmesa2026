@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { LateRecord, Student, AppSettings } from '../types/patrol';
-import { MAJORS } from '../data/initialData';
+import { LateRecord, Student, AppSettings, Major } from '../types/patrol';
 import { formatIndonesianDate, downloadCSV } from '../utils/storage';
 import { exportElementToPDF } from '../utils/pdfExport';
 import { SchoolLogo } from './SchoolLogo';
@@ -21,11 +20,12 @@ interface LaporanViewProps {
   records: LateRecord[];
   students: Student[];
   settings?: AppSettings;
+  majors?: Major[];
 }
 
 type ReportType = 'harian' | 'mingguan' | 'bulanan' | 'semester';
 
-export const LaporanView: React.FC<LaporanViewProps> = ({ records, students, settings }) => {
+export const LaporanView: React.FC<LaporanViewProps> = ({ records, students, settings, majors = [] }) => {
   const [reportType, setReportType] = useState<ReportType>('harian');
   const [targetDate, setTargetDate] = useState('2026-10-10');
   const [targetMonth, setTargetMonth] = useState('2026-10');
@@ -233,9 +233,9 @@ export const LaporanView: React.FC<LaporanViewProps> = ({ records, students, set
               className="w-full p-2 border border-slate-300 rounded-lg bg-white"
             >
               <option value="ALL">Semua Konsentrasi Keahlian</option>
-              {MAJORS.map((m) => (
+              {majors.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.code} - {m.name.split('(')[0]}
+                  {m.code} - {m.name.split('(')[0].trim()}
                 </option>
               ))}
             </select>
