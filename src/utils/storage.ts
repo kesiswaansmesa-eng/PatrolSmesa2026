@@ -1,5 +1,5 @@
-import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS, GuruBK, KKK, TimKesiswaan } from '../types/patrol';
-import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES, INITIAL_GURU_BK, INITIAL_KKK, INITIAL_TIM_KESISWAAN } from '../data/initialData';
+import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS, GuruBK, KKK, TimKesiswaan, Major, SchoolClass } from '../types/patrol';
+import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES, INITIAL_GURU_BK, INITIAL_KKK, INITIAL_TIM_KESISWAAN, MAJORS, INITIAL_CLASSES } from '../data/initialData';
 
 const STORAGE_KEYS = {
   RECORDS: 'patrol_smesa_records_v1',
@@ -8,6 +8,8 @@ const STORAGE_KEYS = {
   GURU_BK: 'patrol_smesa_guru_bk_v1',
   KKK: 'patrol_smesa_kkk_v1',
   TIM_KESISWAAN: 'patrol_smesa_tim_kesiswaan_v1',
+  MAJORS: 'patrol_smesa_majors_v1',
+  CLASSES: 'patrol_smesa_classes_v1',
   ROLE: 'patrol_smesa_role_v1',
   SESSION: 'patrol_smesa_session_v1',
   SETTINGS: 'patrol_smesa_settings_v1',
@@ -230,6 +232,50 @@ export const saveStoredTimKesiswaan = (items: TimKesiswaan[]): void => {
   }
 };
 
+export const getStoredMajors = (): Major[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.MAJORS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.MAJORS, JSON.stringify(MAJORS));
+      return MAJORS;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load majors from storage', e);
+    return MAJORS;
+  }
+};
+
+export const saveStoredMajors = (items: Major[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.MAJORS, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save majors to storage', e);
+  }
+};
+
+export const getStoredClasses = (): SchoolClass[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CLASSES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES));
+      return INITIAL_CLASSES;
+    }
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('Failed to load classes from storage', e);
+    return INITIAL_CLASSES;
+  }
+};
+
+export const saveStoredClasses = (items: SchoolClass[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save classes to storage', e);
+  }
+};
+
 export const getStoredRole = (): AppRole => {
   try {
     const role = localStorage.getItem(STORAGE_KEYS.ROLE);
@@ -258,6 +304,8 @@ export const resetAllData = (): void => {
     localStorage.setItem(STORAGE_KEYS.GURU_BK, JSON.stringify(INITIAL_GURU_BK));
     localStorage.setItem(STORAGE_KEYS.KKK, JSON.stringify(INITIAL_KKK));
     localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(INITIAL_TIM_KESISWAAN));
+    localStorage.setItem(STORAGE_KEYS.MAJORS, JSON.stringify(MAJORS));
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES));
   } catch (e) {
     // ignore
   }
@@ -283,7 +331,7 @@ export const wipeAllSystemData = (): void => {
     localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify([]));
-    // Re-initialize master BK, KKK, Tim Kesiswaan to standard or empty as needed
+    localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify([]));
   } catch (e) {
     console.error('Failed to wipe system data', e);
   }
@@ -298,13 +346,15 @@ export interface SystemBackupPayload {
   guruBK: GuruBK[];
   kkk: KKK[];
   timKesiswaan: TimKesiswaan[];
+  majors?: Major[];
+  classes?: SchoolClass[];
   settings: AppSettings;
 }
 
 export const exportSystemBackup = (): void => {
   try {
     const backup: SystemBackupPayload = {
-      version: '1.2.0',
+      version: '1.3.0',
       exportedAt: new Date().toISOString(),
       records: getStoredRecords(),
       students: getStoredStudents(),
@@ -312,6 +362,8 @@ export const exportSystemBackup = (): void => {
       guruBK: getStoredGuruBK(),
       kkk: getStoredKKK(),
       timKesiswaan: getStoredTimKesiswaan(),
+      majors: getStoredMajors(),
+      classes: getStoredClasses(),
       settings: getStoredSettings(),
     };
 
@@ -349,6 +401,12 @@ export const restoreSystemBackup = (parsed: any): boolean => {
     }
     if (Array.isArray(parsed.timKesiswaan)) {
       localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(parsed.timKesiswaan));
+    }
+    if (Array.isArray(parsed.majors)) {
+      localStorage.setItem(STORAGE_KEYS.MAJORS, JSON.stringify(parsed.majors));
+    }
+    if (Array.isArray(parsed.classes)) {
+      localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(parsed.classes));
     }
     if (parsed.settings && typeof parsed.settings === 'object') {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed.settings));

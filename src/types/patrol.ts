@@ -1,4 +1,4 @@
-export type MajorId = 'RPL' | 'AKL' | 'MPLB' | 'BD' | 'DKV' | 'KL' | 'HTL';
+export type MajorId = 'RPL' | 'AKL' | 'MPLB' | 'BD' | 'DKV' | 'KL' | 'HTL' | string;
 
 export interface Major {
   id: MajorId;
@@ -6,9 +6,19 @@ export interface Major {
   code: string;
   kaprodi: string;
   color: string;
+  description?: string;
 }
 
 export type GradeLevel = 'X' | 'XI' | 'XII';
+
+export interface SchoolClass {
+  id: string;
+  name: string; // e.g. "X RPL 1", "XI AKL 2"
+  grade: GradeLevel;
+  majorId: MajorId;
+  waliKelas: string;
+  room?: string; // e.g. "Lab RPL 1", "R. Teori 204"
+}
 
 export interface Student {
   id: string;

@@ -1,4 +1,4 @@
-import { Major, Student, LateRecord, CounselingEntry, GuruBK, KKK, TimKesiswaan } from '../types/patrol';
+import { Major, Student, LateRecord, CounselingEntry, GuruBK, KKK, TimKesiswaan, SchoolClass } from '../types/patrol';
 
 export const MAJORS: Major[] = [
   {
@@ -7,6 +7,7 @@ export const MAJORS: Major[] = [
     code: 'RPL',
     kaprodi: 'Ir. Budi Santoso, S.Kom., M.T.',
     color: '#2563EB',
+    description: 'Fokus rekayasa perangkat lunak, sistem web, mobile & gim multimedia',
   },
   {
     id: 'AKL',
@@ -14,6 +15,7 @@ export const MAJORS: Major[] = [
     code: 'AKL',
     kaprodi: 'Dra. Sri Wahyuni, M.Pd.',
     color: '#059669',
+    description: 'Fokus akuntansi perbankan, perpajakan, audit & laporan keuangan',
   },
   {
     id: 'MPLB',
@@ -21,6 +23,7 @@ export const MAJORS: Major[] = [
     code: 'MPLB',
     kaprodi: 'Hj. Siti Aminah, S.Pd., M.M.',
     color: '#D97706',
+    description: 'Fokus kearsipan digital, kesekretariatan & otomasi administrasi',
   },
   {
     id: 'BD',
@@ -28,6 +31,7 @@ export const MAJORS: Major[] = [
     code: 'BD',
     kaprodi: 'Agus Purnomo, S.E., M.M.',
     color: '#7C3AED',
+    description: 'Fokus digital marketing, e-commerce & ritel modern',
   },
   {
     id: 'DKV',
@@ -35,6 +39,7 @@ export const MAJORS: Major[] = [
     code: 'DKV',
     kaprodi: 'Rendra Wijaya, S.Sn., M.Ds.',
     color: '#DB2777',
+    description: 'Fokus grafis, videografi, animasi 2D/3D & periklanan visual',
   },
   {
     id: 'KL',
@@ -42,6 +47,7 @@ export const MAJORS: Major[] = [
     code: 'KL',
     kaprodi: 'Dewi Lestari, S.Pd.',
     color: '#EA580C',
+    description: 'Fokus tata hidang internasional, pastry, bakery & kuliner nusantara',
   },
   {
     id: 'HTL',
@@ -49,7 +55,66 @@ export const MAJORS: Major[] = [
     code: 'HTL',
     kaprodi: 'Fajar Hidayat, S.ST.Par.',
     color: '#0891B2',
+    description: 'Fokus front office edotel, housekeeping & hospitalitas pariwisata',
   },
+];
+
+export const INITIAL_CLASSES: SchoolClass[] = [
+  // RPL (PPLG)
+  { id: 'cls-x-rpl-1', name: 'X RPL 1', grade: 'X', majorId: 'RPL', waliKelas: 'Danang Prasetyo, S.Kom.', room: 'Lab Software 1' },
+  { id: 'cls-x-rpl-2', name: 'X RPL 2', grade: 'X', majorId: 'RPL', waliKelas: 'Budi Santoso, M.T.', room: 'Lab Software 2' },
+  { id: 'cls-xi-rpl-1', name: 'XI RPL 1', grade: 'XI', majorId: 'RPL', waliKelas: 'Danang Prasetyo, S.Kom.', room: 'Lab Rekayasa 1' },
+  { id: 'cls-xi-rpl-2', name: 'XI RPL 2', grade: 'XI', majorId: 'RPL', waliKelas: 'Irfan Hakim, S.Kom.', room: 'Lab Rekayasa 2' },
+  { id: 'cls-xii-rpl-1', name: 'XII RPL 1', grade: 'XII', majorId: 'RPL', waliKelas: 'Tri Wahyono, M.Kom.', room: 'Studio Gim & Web' },
+  { id: 'cls-xii-rpl-2', name: 'XII RPL 2', grade: 'XII', majorId: 'RPL', waliKelas: 'Eko Prasetyo, S.T.', room: 'Studio Coding' },
+
+  // AKL
+  { id: 'cls-x-akl-1', name: 'X AKL 1', grade: 'X', majorId: 'AKL', waliKelas: 'Dra. Sri Wahyuni, M.Pd.', room: 'Lab Akuntansi 1' },
+  { id: 'cls-x-akl-2', name: 'X AKL 2', grade: 'X', majorId: 'AKL', waliKelas: 'Endang Sulistiyani, S.Pd.', room: 'Lab Akuntansi 2' },
+  { id: 'cls-xi-akl-1', name: 'XI AKL 1', grade: 'XI', majorId: 'AKL', waliKelas: 'Endang Sulistiyani, S.Pd.', room: 'Bank Mini SMESA' },
+  { id: 'cls-xi-akl-2', name: 'XI AKL 2', grade: 'XI', majorId: 'AKL', waliKelas: 'Dra. Sri Wahyuni', room: 'Lab MYOB/Accurate' },
+  { id: 'cls-xii-akl-1', name: 'XII AKL 1', grade: 'XII', majorId: 'AKL', waliKelas: 'Dra. Yuliani', room: 'R. Teori AKL 1' },
+  { id: 'cls-xii-akl-2', name: 'XII AKL 2', grade: 'XII', majorId: 'AKL', waliKelas: 'Dra. Yuliani', room: 'R. Teori AKL 2' },
+
+  // MPLB
+  { id: 'cls-x-mplb-1', name: 'X MPLB 1', grade: 'X', majorId: 'MPLB', waliKelas: 'Nur Hasanah, S.Pd.', room: 'Lab Perkantoran 1' },
+  { id: 'cls-x-mplb-2', name: 'X MPLB 2', grade: 'X', majorId: 'MPLB', waliKelas: 'Nur Hasanah, S.Pd.', room: 'Lab Perkantoran 2' },
+  { id: 'cls-xi-mplb-1', name: 'XI MPLB 1', grade: 'XI', majorId: 'MPLB', waliKelas: 'Ratna Juwita, S.Pd.', room: 'R. Simulasi Kantor' },
+  { id: 'cls-xi-mplb-2', name: 'XI MPLB 2', grade: 'XI', majorId: 'MPLB', waliKelas: 'Hj. Siti Aminah, S.Pd.', room: 'R. Tata Usaha Bisnis' },
+  { id: 'cls-xii-mplb-1', name: 'XII MPLB 1', grade: 'XII', majorId: 'MPLB', waliKelas: 'M. Yusuf, M.M.', room: 'R. Teori MPLB 1' },
+  { id: 'cls-xii-mplb-2', name: 'XII MPLB 2', grade: 'XII', majorId: 'MPLB', waliKelas: 'Ratna Juwita, S.Pd.', room: 'R. Teori MPLB 2' },
+
+  // BD
+  { id: 'cls-x-bd-1', name: 'X BD 1', grade: 'X', majorId: 'BD', waliKelas: 'Rina Kusuma, S.E.', room: 'Lab Bisnis Retail' },
+  { id: 'cls-x-bd-2', name: 'X BD 2', grade: 'X', majorId: 'BD', waliKelas: 'Agus Purnomo, S.E.', room: 'Lab Digital Market 1' },
+  { id: 'cls-xi-bd-1', name: 'XI BD 1', grade: 'XI', majorId: 'BD', waliKelas: 'Yuli Astuti, S.Pd.', room: 'Business Center SMESA' },
+  { id: 'cls-xi-bd-2', name: 'XI BD 2', grade: 'XI', majorId: 'BD', waliKelas: 'Yuli Astuti, S.Pd.', room: 'Lab Live Streaming BD' },
+  { id: 'cls-xii-bd-1', name: 'XII BD 1', grade: 'XII', majorId: 'BD', waliKelas: 'Rina Kusuma, S.E.', room: 'R. Teori BD 1' },
+  { id: 'cls-xii-bd-2', name: 'XII BD 2', grade: 'XII', majorId: 'BD', waliKelas: 'Agus Purnomo, S.E.', room: 'R. Teori BD 2' },
+
+  // DKV
+  { id: 'cls-x-dkv-1', name: 'X DKV 1', grade: 'X', majorId: 'DKV', waliKelas: 'Rendra Wijaya, S.Sn.', room: 'Studio Desain 1' },
+  { id: 'cls-x-dkv-2', name: 'X DKV 2', grade: 'X', majorId: 'DKV', waliKelas: 'Andi Nugroho, S.Pd.', room: 'Studio Desain 2' },
+  { id: 'cls-xi-dkv-1', name: 'XI DKV 1', grade: 'XI', majorId: 'DKV', waliKelas: 'Rendra Wijaya, S.Sn.', room: 'Studio Fotografi' },
+  { id: 'cls-xi-dkv-2', name: 'XI DKV 2', grade: 'XI', majorId: 'DKV', waliKelas: 'Andi Nugroho, S.Pd.', room: 'Studio Animasi & Render' },
+  { id: 'cls-xii-dkv-1', name: 'XII DKV 1', grade: 'XII', majorId: 'DKV', waliKelas: 'Farhan Maulana, S.Ds.', room: 'Studio Cetak & Audio' },
+  { id: 'cls-xii-dkv-2', name: 'XII DKV 2', grade: 'XII', majorId: 'DKV', waliKelas: 'Andi Nugroho, S.Pd.', room: 'R. Teori DKV' },
+
+  // KL (Kuliner)
+  { id: 'cls-x-kl-1', name: 'X KL 1', grade: 'X', majorId: 'KL', waliKelas: 'Kartika Sari, S.Pd.', room: 'Dapur Nusantara 1' },
+  { id: 'cls-x-kl-2', name: 'X KL 2', grade: 'X', majorId: 'KL', waliKelas: 'Dewi Lestari, S.Pd.', room: 'Dapur Nusantara 2' },
+  { id: 'cls-xi-kl-1', name: 'XI KL 1', grade: 'XI', majorId: 'KL', waliKelas: 'Kartika Sari, S.Pd.', room: 'Studio Pastry & Bakery' },
+  { id: 'cls-xi-kl-2', name: 'XI KL 2', grade: 'XI', majorId: 'KL', waliKelas: 'Dewi Lestari, S.Pd.', room: 'Restoran Praktik SMESA' },
+  { id: 'cls-xii-kl-1', name: 'XII KL 1', grade: 'XII', majorId: 'KL', waliKelas: 'Susilowati, S.Pd.', room: 'Dapur Kontinental' },
+  { id: 'cls-xii-kl-2', name: 'XII KL 2', grade: 'XII', majorId: 'KL', waliKelas: 'Dewi Lestari, S.Pd.', room: 'R. Teori Boga' },
+
+  // HTL (Perhotelan)
+  { id: 'cls-x-htl-1', name: 'X HTL 1', grade: 'X', majorId: 'HTL', waliKelas: 'Fajar Hidayat, S.ST.', room: 'Front Office Edotel' },
+  { id: 'cls-x-htl-2', name: 'X HTL 2', grade: 'X', majorId: 'HTL', waliKelas: 'Fajar Hidayat, S.ST.', room: 'Mockup Kamar Hotel 1' },
+  { id: 'cls-xi-htl-1', name: 'XI HTL 1', grade: 'XI', majorId: 'HTL', waliKelas: 'Lukman Hakim, S.Pd.', room: 'Mockup Kamar Hotel 2' },
+  { id: 'cls-xi-htl-2', name: 'XI HTL 2', grade: 'XI', majorId: 'HTL', waliKelas: 'Lukman Hakim, S.Pd.', room: 'Lab Laundry & Linen' },
+  { id: 'cls-xii-htl-1', name: 'XII HTL 1', grade: 'XII', majorId: 'HTL', waliKelas: 'Lukman Hakim, S.Pd.', room: 'R. Simulasi Manajerial' },
+  { id: 'cls-xii-htl-2', name: 'XII HTL 2', grade: 'XII', majorId: 'HTL', waliKelas: 'Fajar Hidayat, S.ST.', room: 'R. Teori Perhotelan' },
 ];
 
 export const INITIAL_STUDENTS: Student[] = [

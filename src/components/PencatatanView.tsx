@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { LateRecord, Student, MajorId } from '../types/patrol';
-import { MAJORS } from '../data/initialData';
+import { LateRecord, Student, MajorId, Major, SchoolClass } from '../types/patrol';
+import { MAJORS, INITIAL_CLASSES } from '../data/initialData';
 import { formatIndonesianDate, generateWhatsAppLink, downloadCSV } from '../utils/storage';
 import { 
   Search, 
@@ -20,6 +20,8 @@ import {
 interface PencatatanViewProps {
   records: LateRecord[];
   students: Student[];
+  majors?: Major[];
+  classes?: SchoolClass[];
   onOpenQuickRecord: () => void;
   onDeleteRecord: (id: string) => void;
   onUpdateStatus: (id: string, status: 'Belum Dibina' | 'Sedang Dibina' | 'Selesai Pembinaan') => void;
@@ -29,16 +31,29 @@ interface PencatatanViewProps {
 export const PencatatanView: React.FC<PencatatanViewProps> = ({
   records,
   students,
+  majors = [],
+  classes = [],
   onOpenQuickRecord,
   onDeleteRecord,
   onUpdateStatus,
   onPrintCallLetter,
 }) => {
+  const currentMajors = majors.length > 0 ? majors : MAJORS;
+  const currentClasses = classes.length > 0 ? classes : INITIAL_CLASSES;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMajor, setSelectedMajor] = useState<string>('ALL');
+  const [selectedClass, setSelectedClass] = useState<string>('ALL');
   const [selectedSemester, setSelectedSemester] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [dateFilter, setDateFilter] = useState<string>('');
+
+  // Available classes for dropdown, filtered by selectedMajor if applicable
+  const availableClassesForFilter = currentClasses.length > 0
+    ? (selectedMajor === 'ALL'
+        ? Array.from(new Set(currentClasses.map((c) => c.name))).sort()
+        : Array.from(new Set(currentClasses.filter((c) => c.majorId === selectedMajor).map((c) => c.name))).sort())
+    : Array.from(new Set(students.map((s) => s.className))).sort();
 
   // Count violations per student for contextual badging
   const studentViolationCounts: Record<string, number> = {};
@@ -58,6 +73,7 @@ export const PencatatanView: React.FC<PencatatanViewProps> = ({
       if (!match) return false;
     }
     if (selectedMajor !== 'ALL' && r.majorId !== selectedMajor) return false;
+    if (selectedClass !== 'ALL' && r.className !== selectedClass) return false;
     if (selectedSemester !== 'ALL' && r.semester !== selectedSemester) return false;
     if (selectedStatus !== 'ALL' && r.counselingStatus !== selectedStatus) return false;
     if (dateFilter && r.date !== dateFilter) return false;
@@ -100,7 +116,7 @@ export const PencatatanView: React.FC<PencatatanViewProps> = ({
 
       {/* Filter Toolbar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           {/* Search Box */}
           <div className="lg:col-span-2 relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -118,13 +134,33 @@ export const PencatatanView: React.FC<PencatatanViewProps> = ({
             <select
               aria-label="Filter Jurusan"
               value={selectedMajor}
-              onChange={(e) => setSelectedMajor(e.target.value)}
+              onChange={(e) => {
+                setSelectedMajor(e.target.value);
+                setSelectedClass('ALL');
+              }}
               className="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
             >
               <option value="ALL">Semua Jurusan</option>
-              {MAJORS.map((m) => (
+              {currentMajors.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.code} - {m.name.split('(')[0]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Class Filter */}
+          <div>
+            <select
+              aria-label="Filter Kelas"
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+            >
+              <option value="ALL">Semua Kelas ({availableClassesForFilter.length})</option>
+              {availableClassesForFilter.map((cls) => (
+                <option key={cls} value={cls}>
+                  {cls}
                 </option>
               ))}
             </select>
@@ -138,7 +174,7 @@ export const PencatatanView: React.FC<PencatatanViewProps> = ({
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
             >
-              <option value="ALL">Semua Status Pembinaan</option>
+              <option value="ALL">Semua Status</option>
               <option value="Belum Dibina">Belum Dibina</option>
               <option value="Sedang Dibina">Sedang Dibina</option>
               <option value="Selesai Pembinaan">Selesai Pembinaan</option>

@@ -12,7 +12,9 @@ import {
   UserSession,
   GuruBK,
   KKK,
-  TimKesiswaan
+  TimKesiswaan,
+  Major,
+  SchoolClass
 } from './types/patrol';
 import { 
   getStoredRecords, 
@@ -37,6 +39,10 @@ import {
   saveStoredKKK,
   getStoredTimKesiswaan,
   saveStoredTimKesiswaan,
+  getStoredMajors,
+  saveStoredMajors,
+  getStoredClasses,
+  saveStoredClasses,
   resetViolationsOnly,
   wipeAllSystemData,
   exportSystemBackup,
@@ -66,6 +72,8 @@ export default function App() {
   const [guruBK, setGuruBK] = useState<GuruBK[]>([]);
   const [kkkList, setKKKList] = useState<KKK[]>([]);
   const [timKesiswaan, setTimKesiswaan] = useState<TimKesiswaan[]>([]);
+  const [majors, setMajors] = useState<Major[]>([]);
+  const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>([]);
   const [activeRole, setActiveRole] = useState<AppRole>('kesiswaan');
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [theme, setTheme] = useState<ThemeMode>('light');
@@ -90,6 +98,8 @@ export default function App() {
     setGuruBK(getStoredGuruBK());
     setKKKList(getStoredKKK());
     setTimKesiswaan(getStoredTimKesiswaan());
+    setMajors(getStoredMajors());
+    setSchoolClasses(getStoredClasses());
     setSettings(getStoredSettings());
 
     const initialTheme = getStoredTheme();
@@ -249,6 +259,8 @@ export default function App() {
       setGuruBK(getStoredGuruBK());
       setKKKList(getStoredKKK());
       setTimKesiswaan(getStoredTimKesiswaan());
+      setMajors(getStoredMajors());
+      setSchoolClasses(getStoredClasses());
       triggerToast('Data contoh SMKN 1 Jember berhasil dimuat ulang.');
     }
   };
@@ -257,6 +269,16 @@ export default function App() {
   const handleUpdateStudents = (newStudents: Student[]) => {
     setStudents(newStudents);
     saveStoredStudents(newStudents);
+  };
+
+  const handleUpdateMajors = (newList: Major[]) => {
+    setMajors(newList);
+    saveStoredMajors(newList);
+  };
+
+  const handleUpdateClasses = (newList: SchoolClass[]) => {
+    setSchoolClasses(newList);
+    saveStoredClasses(newList);
   };
 
   const handleUpdateGuruBK = (newList: GuruBK[]) => {
@@ -288,6 +310,7 @@ export default function App() {
     setRecords([]);
     setCounselingEntries([]);
     setStudents([]);
+    setSchoolClasses([]);
     triggerToast('Basis data operasional berhasil dihapus bersih.');
   };
 
@@ -312,6 +335,8 @@ export default function App() {
           setGuruBK(getStoredGuruBK());
           setKKKList(getStoredKKK());
           setTimKesiswaan(getStoredTimKesiswaan());
+          setMajors(getStoredMajors());
+          setSchoolClasses(getStoredClasses());
           setSettings(getStoredSettings());
           triggerToast('Basis data sistem berhasil dipulihkan dari file backup!');
         } else {
@@ -343,7 +368,9 @@ export default function App() {
   }
 
   // Extract unique classes for Wali Kelas filter dropdown
-  const availableClasses = Array.from(new Set(students.map((s) => s.className))).sort();
+  const availableClasses = schoolClasses.length > 0
+    ? Array.from(new Set(schoolClasses.map((c) => c.name))).sort()
+    : Array.from(new Set(students.map((s) => s.className))).sort();
 
   // Calculate student violation count for print modal
   const violationCountForModal = printTargetStudent
@@ -398,6 +425,8 @@ export default function App() {
           <PencatatanView
             records={records}
             students={students}
+            majors={majors}
+            classes={schoolClasses}
             onOpenQuickRecord={() => setQuickRecordModalOpen(true)}
             onDeleteRecord={handleDeleteRecord}
             onUpdateStatus={handleUpdateStatus}
@@ -416,6 +445,7 @@ export default function App() {
             counselingEntries={counselingEntries}
             guruBK={guruBK}
             timKesiswaan={timKesiswaan}
+            classes={schoolClasses}
             onAddCounselingEntry={handleAddCounselingEntry}
             onPrintCallLetter={handlePrintCallLetter}
             onPrintCommitmentLetter={handlePrintCommitmentLetter}
@@ -431,6 +461,10 @@ export default function App() {
             <MasterDataView
               students={students}
               onUpdateStudents={handleUpdateStudents}
+              majors={majors}
+              onUpdateMajors={handleUpdateMajors}
+              classes={schoolClasses}
+              onUpdateClasses={handleUpdateClasses}
               guruBK={guruBK}
               onUpdateGuruBK={handleUpdateGuruBK}
               kkkList={kkkList}
@@ -452,7 +486,7 @@ export default function App() {
                 Akses Terbatas: Khusus Tim Kesiswaan / Admin
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-                Menu Master Data Siswa, Guru BK, KKK &amp; Tim Kesiswaan hanya dapat dikelola oleh akun Tim Kesiswaan / Administrator demi menjaga keakuratan dan integritas basis data siswa {settings.schoolName}.
+                Menu Master Data Siswa, Kelas &amp; Jurusan, Guru BK, KKK &amp; Tim Kesiswaan hanya dapat dikelola oleh akun Tim Kesiswaan / Administrator demi menjaga keakuratan dan integritas basis data siswa {settings.schoolName}.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button
@@ -523,6 +557,7 @@ export default function App() {
         existingRecords={records}
         onSaveRecord={handleSaveRecord}
         settings={settings}
+        classes={schoolClasses}
       />
 
       {/* Printable Official Document Modal */}

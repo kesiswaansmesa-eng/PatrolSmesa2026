@@ -1,5 +1,5 @@
 import React, { useState, useId } from 'react';
-import { Student, LateRecord, LateReason, EducationalSanction, AppSettings } from '../types/patrol';
+import { Student, LateRecord, LateReason, EducationalSanction, AppSettings, SchoolClass } from '../types/patrol';
 import { calculateMinutesLate, getIndonesianDayName, generateWhatsAppLink } from '../utils/storage';
 import { 
   X, 
@@ -22,6 +22,7 @@ interface GateLoggerModalProps {
   existingRecords: LateRecord[];
   onSaveRecord: (record: Omit<LateRecord, 'id' | 'createdAt'>) => void;
   settings?: AppSettings;
+  classes?: SchoolClass[];
 }
 
 const COMMON_REASONS: LateReason[] = [
@@ -52,6 +53,7 @@ export const GateLoggerModal: React.FC<GateLoggerModalProps> = ({
   existingRecords,
   onSaveRecord,
   settings,
+  classes = [],
 }) => {
   const searchInputId = useId();
   const notesInputId = useId();
@@ -84,7 +86,9 @@ export const GateLoggerModal: React.FC<GateLoggerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const uniqueClasses = Array.from(new Set(students.map((s) => s.className))).sort();
+  const uniqueClasses = classes.length > 0
+    ? Array.from(new Set(classes.map((c) => c.name))).sort()
+    : Array.from(new Set(students.map((s) => s.className))).sort();
 
   // Filter students based on query and class filter
   const filteredStudents = students.filter((s) => {

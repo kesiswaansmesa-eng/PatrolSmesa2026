@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Student, MajorId, GuruBK, KKK, TimKesiswaan } from '../types/patrol';
-import { MAJORS } from '../data/initialData';
+import { Student, MajorId, GuruBK, KKK, TimKesiswaan, SchoolClass, Major, GradeLevel } from '../types/patrol';
+import { MAJORS, INITIAL_CLASSES } from '../data/initialData';
 import { 
   Users, 
   Upload, 
@@ -26,12 +26,22 @@ import {
   ArrowDownToLine,
   Phone,
   Mail,
-  UserCheck
+  UserCheck,
+  Layers,
+  School,
+  Tag,
+  BookOpen,
+  Palette,
+  Check
 } from 'lucide-react';
 
 interface MasterDataViewProps {
   students: Student[];
   onUpdateStudents: (students: Student[]) => void;
+  majors?: Major[];
+  onUpdateMajors?: (majors: Major[]) => void;
+  classes?: SchoolClass[];
+  onUpdateClasses?: (classes: SchoolClass[]) => void;
   guruBK?: GuruBK[];
   onUpdateGuruBK?: (list: GuruBK[]) => void;
   kkkList?: KKK[];
@@ -45,11 +55,15 @@ interface MasterDataViewProps {
   onToast: (msg: string) => void;
 }
 
-export type MasterTab = 'siswa' | 'guru_bk' | 'kkk' | 'tim_kesiswaan';
+export type MasterTab = 'siswa' | 'kelas_jurusan' | 'guru_bk' | 'kkk' | 'tim_kesiswaan';
 
 export const MasterDataView: React.FC<MasterDataViewProps> = ({
   students,
   onUpdateStudents,
+  majors = [],
+  onUpdateMajors,
+  classes = [],
+  onUpdateClasses,
   guruBK = [],
   onUpdateGuruBK,
   kkkList = [],
@@ -63,6 +77,9 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   onToast,
 }) => {
   const [activeTab, setActiveTab] = useState<MasterTab>('siswa');
+
+  const currentMajors = majors && majors.length > 0 ? majors : MAJORS;
+  const currentClasses = classes && classes.length > 0 ? classes : INITIAL_CLASSES;
 
   // Search & Filters for Siswa
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,6 +167,57 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   const [importKesiswaanFileName, setImportKesiswaanFileName] = useState<string>('');
   const [importKesiswaanError, setImportKesiswaanError] = useState<string | null>(null);
 
+  // Subtab for Master Kelas & Jurusan
+  const [kjSubTab, setKjSubTab] = useState<'kelas' | 'jurusan'>('kelas');
+
+  // Search & Filters for Kelas
+  const [classSearch, setClassSearch] = useState('');
+  const [classGradeFilter, setClassGradeFilter] = useState<string>('ALL');
+  const [classMajorFilter, setClassMajorFilter] = useState<string>('ALL');
+
+  // Search for Jurusan
+  const [majorSearch, setMajorSearch] = useState('');
+
+  // Modals state for Kelas
+  const [classModalOpen, setClassModalOpen] = useState(false);
+  const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
+  const [classForm, setClassForm] = useState<Omit<SchoolClass, 'id'>>({
+    name: 'X RPL 1',
+    grade: 'X',
+    majorId: 'RPL',
+    waliKelas: '',
+    room: '',
+  });
+
+  // Modals state for Jurusan
+  const [majorModalOpen, setMajorModalOpen] = useState(false);
+  const [editingMajor, setEditingMajor] = useState<Major | null>(null);
+  const [majorForm, setMajorForm] = useState<Major>({
+    id: '',
+    code: '',
+    name: '',
+    kaprodi: '',
+    color: '#2563EB',
+    description: '',
+  });
+
+  // Import preview state for Kelas
+  const [classImportModalOpen, setClassImportModalOpen] = useState(false);
+  const [parsedImportClassRows, setParsedImportClassRows] = useState<Partial<SchoolClass>[]>([]);
+  const [importClassMode, setImportClassMode] = useState<'append' | 'replace'>('append');
+  const [classImportFileName, setClassImportFileName] = useState<string>('');
+  const [classImportError, setClassImportError] = useState<string | null>(null);
+
+  // Import preview state for Jurusan
+  const [majorImportModalOpen, setMajorImportModalOpen] = useState(false);
+  const [parsedImportMajorRows, setParsedImportMajorRows] = useState<Partial<Major>[]>([]);
+  const [importMajorMode, setImportMajorMode] = useState<'append' | 'replace'>('append');
+  const [majorImportFileName, setMajorImportFileName] = useState<string>('');
+  const [majorImportError, setMajorImportError] = useState<string | null>(null);
+
+  // Student Form - Custom Class Name toggle
+  const [useCustomClassName, setUseCustomClassName] = useState(false);
+
   // Student Form
   const [formData, setFormData] = useState<Omit<Student, 'id'>>({
     nis: '',
@@ -165,6 +233,8 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const classFileInputRef = useRef<HTMLInputElement>(null);
+  const majorFileInputRef = useRef<HTMLInputElement>(null);
   const bkFileInputRef = useRef<HTMLInputElement>(null);
   const kkkFileInputRef = useRef<HTMLInputElement>(null);
   const kesiswaanFileInputRef = useRef<HTMLInputElement>(null);
@@ -188,7 +258,15 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
     return true;
   });
 
-  const uniqueClasses = Array.from(new Set(students.map((s) => s.className))).sort();
+  const uniqueClasses = currentClasses.length > 0
+    ? Array.from(new Set(currentClasses.map((c) => c.name))).sort()
+    : Array.from(new Set(students.map((s) => s.className))).sort();
+
+  const availableClassesForFilter = currentClasses.length > 0
+    ? (selectedMajor === 'ALL'
+        ? uniqueClasses
+        : Array.from(new Set(currentClasses.filter(c => c.majorId === selectedMajor).map(c => c.name))).sort())
+    : uniqueClasses;
 
   const handleDownloadTemplate = () => {
     const templateData = [
@@ -251,22 +329,40 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
           const gender = (String(row['Jenis_Kelamin'] || row['Gender'] || row['JK'] || 'L').toUpperCase().startsWith('P') ? 'P' : 'L') as 'L' | 'P';
           const className = String(row['Kelas'] || row['kelas'] || row['Rombel'] || 'X RPL 1').trim();
           
-          let majorId: MajorId = 'RPL';
+          // Match with Master Kelas automatically
+          const matchedClass = currentClasses.find((c) => c.name.toLowerCase() === className.toLowerCase());
+
+          let majorId: MajorId = matchedClass ? matchedClass.majorId : 'RPL';
           const rawMajor = String(row['Jurusan'] || row['major'] || '').toUpperCase();
-          if (['RPL', 'PPLG'].some((k) => rawMajor.includes(k))) majorId = 'RPL';
-          else if (['AKL', 'AKUNTANSI'].some((k) => rawMajor.includes(k))) majorId = 'AKL';
-          else if (['MPLB', 'OTKP', 'PERKANTORAN'].some((k) => rawMajor.includes(k))) majorId = 'MPLB';
-          else if (['BD', 'BDP', 'PEMASARAN', 'BISNIS'].some((k) => rawMajor.includes(k))) majorId = 'BD';
-          else if (['DKV', 'DESAIN'].some((k) => rawMajor.includes(k))) majorId = 'DKV';
-          else if (['KL', 'KULINER', 'BOGA'].some((k) => rawMajor.includes(k))) majorId = 'KL';
-          else if (['HTL', 'HOTEL', 'PERHOTELAN'].some((k) => rawMajor.includes(k))) majorId = 'HTL';
+          if (rawMajor) {
+            const foundMaj = currentMajors.find((m) => m.id.toUpperCase() === rawMajor || m.code.toUpperCase() === rawMajor);
+            if (foundMaj) majorId = foundMaj.id;
+            else if (['RPL', 'PPLG'].some((k) => rawMajor.includes(k))) majorId = 'RPL';
+            else if (['AKL', 'AKUNTANSI'].some((k) => rawMajor.includes(k))) majorId = 'AKL';
+            else if (['MPLB', 'OTKP', 'PERKANTORAN'].some((k) => rawMajor.includes(k))) majorId = 'MPLB';
+            else if (['BD', 'BDP', 'PEMASARAN', 'BISNIS'].some((k) => rawMajor.includes(k))) majorId = 'BD';
+            else if (['DKV', 'DESAIN'].some((k) => rawMajor.includes(k))) majorId = 'DKV';
+            else if (['KL', 'KULINER', 'BOGA'].some((k) => rawMajor.includes(k))) majorId = 'KL';
+            else if (['HTL', 'HOTEL', 'PERHOTELAN'].some((k) => rawMajor.includes(k))) majorId = 'HTL';
+          }
 
           const parentName = String(row['Nama_Orang_Tua'] || row['Orang Tua'] || row['Wali'] || '-').trim();
           let parentPhone = String(row['No_WA_Orang_Tua'] || row['No WA'] || row['No HP'] || row['Telepon'] || '628').trim();
           if (parentPhone.startsWith('0')) parentPhone = '62' + parentPhone.slice(1);
 
-          const waliKelas = String(row['Wali_Kelas'] || row['Wali Kelas'] || 'Wali Kelas').trim();
-          const grade = className.toUpperCase().startsWith('XII') ? 'XII' : className.toUpperCase().startsWith('XI') ? 'XI' : 'X';
+          let waliKelas = String(row['Wali_Kelas'] || row['Wali Kelas'] || '').trim();
+          if (!waliKelas && matchedClass) {
+            waliKelas = matchedClass.waliKelas;
+          }
+          if (!waliKelas) waliKelas = 'Wali Kelas';
+
+          const grade: GradeLevel = matchedClass
+            ? matchedClass.grade
+            : className.toUpperCase().startsWith('XII')
+            ? 'XII'
+            : className.toUpperCase().startsWith('XI')
+            ? 'XI'
+            : 'X';
 
           return {
             id: `std-imp-${Date.now()}-${idx}`,
@@ -335,23 +431,27 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
 
   const handleOpenAddModal = () => {
     setEditingStudent(null);
+    setUseCustomClassName(false);
+    const firstCls = currentClasses[0];
     setFormData({
       nis: '',
       nisn: '',
       name: '',
       gender: 'L',
-      majorId: 'RPL',
-      grade: 'X',
-      className: 'X RPL 1',
+      majorId: firstCls ? firstCls.majorId : 'RPL',
+      grade: firstCls ? firstCls.grade : 'X',
+      className: firstCls ? firstCls.name : 'X RPL 1',
       parentName: '',
       parentPhone: '628',
-      waliKelas: '',
+      waliKelas: firstCls ? firstCls.waliKelas : '',
     });
     setStudentModalOpen(true);
   };
 
   const handleOpenEditModal = (student: Student) => {
     setEditingStudent(student);
+    const isMasterClass = currentClasses.some((c) => c.name === student.className);
+    setUseCustomClassName(!isMasterClass);
     setFormData({
       nis: student.nis,
       nisn: student.nisn,
@@ -365,6 +465,494 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
       waliKelas: student.waliKelas,
     });
     setStudentModalOpen(true);
+  };
+
+  const handleSelectClassInStudentForm = (targetClassName: string) => {
+    const matched = currentClasses.find((c) => c.name === targetClassName);
+    if (matched) {
+      setFormData((prev) => ({
+        ...prev,
+        className: matched.name,
+        majorId: matched.majorId,
+        grade: matched.grade,
+        waliKelas: matched.waliKelas || prev.waliKelas,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        className: targetClassName,
+      }));
+    }
+  };
+
+  const handleSelectMajorInStudentForm = (newMajorId: MajorId) => {
+    const matchingClasses = currentClasses.filter((c) => c.majorId === newMajorId);
+    const sameGradeClass = matchingClasses.find((c) => c.grade === formData.grade) || matchingClasses[0];
+    if (sameGradeClass && !useCustomClassName) {
+      setFormData((prev) => ({
+        ...prev,
+        majorId: newMajorId,
+        className: sameGradeClass.name,
+        grade: sameGradeClass.grade,
+        waliKelas: sameGradeClass.waliKelas || prev.waliKelas,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        majorId: newMajorId,
+      }));
+    }
+  };
+
+  // ========================
+  // KELAS CRUD & EXCEL
+  // ========================
+  const filteredClasses = currentClasses.filter((c) => {
+    if (classSearch.trim()) {
+      const q = classSearch.toLowerCase();
+      const match =
+        c.name.toLowerCase().includes(q) ||
+        c.waliKelas.toLowerCase().includes(q) ||
+        (c.room && c.room.toLowerCase().includes(q)) ||
+        c.majorId.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    if (classGradeFilter !== 'ALL' && c.grade !== classGradeFilter) return false;
+    if (classMajorFilter !== 'ALL' && c.majorId !== classMajorFilter) return false;
+    return true;
+  });
+
+  const handleOpenAddClassModal = () => {
+    setEditingClass(null);
+    const firstMaj = currentMajors[0];
+    setClassForm({
+      name: '',
+      grade: 'X',
+      majorId: firstMaj ? firstMaj.id : 'RPL',
+      waliKelas: '',
+      room: '',
+    });
+    setClassModalOpen(true);
+  };
+
+  const handleOpenEditClassModal = (cls: SchoolClass) => {
+    setEditingClass(cls);
+    setClassForm({
+      name: cls.name,
+      grade: cls.grade,
+      majorId: cls.majorId,
+      waliKelas: cls.waliKelas,
+      room: cls.room || '',
+    });
+    setClassModalOpen(true);
+  };
+
+  const handleSaveClass = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!classForm.name.trim()) {
+      alert('Nama Rombel / Kelas wajib diisi.');
+      return;
+    }
+
+    let updatedClasses: SchoolClass[];
+    if (editingClass) {
+      const oldName = editingClass.name;
+      const newName = classForm.name.trim();
+      updatedClasses = currentClasses.map((c) =>
+        c.id === editingClass.id
+          ? { ...classForm, name: newName, id: editingClass.id }
+          : c
+      );
+
+      // If class name changed, cascade update student records enrolled in oldName
+      if (oldName !== newName) {
+        const updatedStudents = students.map((s) =>
+          s.className === oldName
+            ? { ...s, className: newName, majorId: classForm.majorId, grade: classForm.grade, waliKelas: classForm.waliKelas || s.waliKelas }
+            : s
+        );
+        onUpdateStudents(updatedStudents);
+      }
+      onToast(`Data kelas ${newName} berhasil diperbarui.`);
+    } else {
+      const newCls: SchoolClass = {
+        ...classForm,
+        name: classForm.name.trim(),
+        id: `cls-${Date.now()}`,
+      };
+      updatedClasses = [...currentClasses, newCls];
+      onToast(`Kelas ${newCls.name} berhasil ditambahkan ke Master Data.`);
+    }
+
+    onUpdateClasses?.(updatedClasses);
+    setClassModalOpen(false);
+  };
+
+  const handleDeleteClass = (cls: SchoolClass) => {
+    const studentCountInClass = students.filter((s) => s.className === cls.name).length;
+    let confirmMsg = `Hapus data master kelas ${cls.name}?`;
+    if (studentCountInClass > 0) {
+      confirmMsg = `PERINGATAN: Terdapat ${studentCountInClass} siswa aktif yang terdaftar di kelas ${cls.name}.\n\nJika kelas dihapus, siswa akan tetap ada di database tetapi tidak lagi terhubung ke master kelas.\n\nApakah Anda yakin ingin menghapus kelas ini?`;
+    }
+    if (confirm(confirmMsg)) {
+      const updated = currentClasses.filter((c) => c.id !== cls.id);
+      onUpdateClasses?.(updated);
+      onToast(`Kelas ${cls.name} berhasil dihapus.`);
+    }
+  };
+
+  const handleDownloadTemplateClass = () => {
+    const templateData = [
+      {
+        Nama_Kelas: 'X RPL 3',
+        Tingkat: 'X',
+        Kode_Jurusan: 'RPL',
+        Wali_Kelas: 'Ir. Danang Prasetyo, S.Kom.',
+        Ruang_Kelas: 'Lab Software 3',
+      },
+      {
+        Nama_Kelas: 'XI AKL 3',
+        Tingkat: 'XI',
+        Kode_Jurusan: 'AKL',
+        Wali_Kelas: 'Dra. Endang Sulistiyani',
+        Ruang_Kelas: 'Bank Mini 2',
+      },
+      {
+        Nama_Kelas: 'XII DKV 3',
+        Tingkat: 'XII',
+        Kode_Jurusan: 'DKV',
+        Wali_Kelas: 'Farhan Maulana, S.Ds.',
+        Ruang_Kelas: 'Studio Cetak 2',
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_Master_Kelas');
+    XLSX.writeFile(wb, 'Template_Import_Master_Kelas_SMKN1_Jember.xlsx');
+    onToast('Template Excel Master Kelas berhasil diunduh.');
+  };
+
+  const handleFileUploadClass = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setClassImportFileName(file.name);
+    setClassImportError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (rawJson.length === 0) {
+          setClassImportError('File kosong atau format tidak sesuai.');
+          return;
+        }
+
+        const parsed: Partial<SchoolClass>[] = rawJson.map((row, idx) => {
+          const name = String(row['Nama_Kelas'] || row['Nama'] || row['Kelas'] || row['Rombel'] || '').trim();
+          let grade: GradeLevel = 'X';
+          const rawGrade = String(row['Tingkat'] || row['grade'] || '').toUpperCase();
+          if (rawGrade.includes('XII')) grade = 'XII';
+          else if (rawGrade.includes('XI')) grade = 'XI';
+          else if (name.toUpperCase().startsWith('XII')) grade = 'XII';
+          else if (name.toUpperCase().startsWith('XI')) grade = 'XI';
+
+          let majorId: MajorId = 'RPL';
+          const rawMajor = String(row['Kode_Jurusan'] || row['Jurusan'] || row['major'] || '').toUpperCase();
+          if (rawMajor) {
+            const foundMaj = currentMajors.find(m => m.id.toUpperCase() === rawMajor || m.code.toUpperCase() === rawMajor);
+            if (foundMaj) majorId = foundMaj.id;
+          } else {
+            const foundMaj = currentMajors.find(m => name.toUpperCase().includes(m.code.toUpperCase()));
+            if (foundMaj) majorId = foundMaj.id;
+          }
+
+          const waliKelas = String(row['Wali_Kelas'] || row['Wali'] || '-').trim();
+          const room = String(row['Ruang_Kelas'] || row['Ruangan'] || row['Lab'] || '').trim();
+
+          return {
+            id: `cls-imp-${Date.now()}-${idx}`,
+            name,
+            grade,
+            majorId,
+            waliKelas,
+            room,
+          };
+        }).filter(r => Boolean(r.name));
+
+        if (parsed.length === 0) {
+          setClassImportError('Tidak ditemukan baris kelas yang valid (Nama_Kelas kosong).');
+          return;
+        }
+
+        setParsedImportClassRows(parsed);
+      } catch (err) {
+        console.error('Error parsing excel master kelas', err);
+        setClassImportError('Gagal membaca file Excel/CSV. Pastikan format file valid.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleCommitImportClass = () => {
+    if (parsedImportClassRows.length === 0) return;
+
+    let updated: SchoolClass[] = [];
+    if (importClassMode === 'replace') {
+      updated = parsedImportClassRows as SchoolClass[];
+    } else {
+      const existingNames = new Set(currentClasses.map((c) => c.name.toLowerCase()));
+      const newItems = (parsedImportClassRows as SchoolClass[]).filter(
+        (c) => !existingNames.has(c.name.toLowerCase())
+      );
+      updated = [...currentClasses, ...newItems];
+    }
+
+    onUpdateClasses?.(updated);
+    onToast(`Berhasil mengimpor ${parsedImportClassRows.length} data rombel/kelas.`);
+    setClassImportModalOpen(false);
+    setParsedImportClassRows([]);
+    setClassImportFileName('');
+  };
+
+  const handleExportClasses = () => {
+    const exportRows = filteredClasses.map((c, idx) => {
+      const studentCount = students.filter((s) => s.className === c.name).length;
+      const maj = currentMajors.find((m) => m.id === c.majorId);
+      return {
+        No: idx + 1,
+        Nama_Kelas: c.name,
+        Tingkat: c.grade,
+        Kode_Jurusan: c.majorId,
+        Nama_Jurusan: maj ? maj.name : c.majorId,
+        Wali_Kelas: c.waliKelas,
+        Ruang_Kelas: c.room || '-',
+        Jumlah_Siswa: studentCount,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Master_Kelas');
+    XLSX.writeFile(wb, `Master_Kelas_SMKN1_Jember_${new Date().toISOString().split('T')[0]}.xlsx`);
+    onToast('Data master kelas berhasil diekspor ke Excel.');
+  };
+
+  // ========================
+  // JURUSAN CRUD & EXCEL
+  // ========================
+  const filteredMajors = currentMajors.filter((m) => {
+    if (majorSearch.trim()) {
+      const q = majorSearch.toLowerCase();
+      return (
+        m.name.toLowerCase().includes(q) ||
+        m.code.toLowerCase().includes(q) ||
+        m.kaprodi.toLowerCase().includes(q) ||
+        (m.description && m.description.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
+  const handleOpenAddMajorModal = () => {
+    setEditingMajor(null);
+    setMajorForm({
+      id: '',
+      code: '',
+      name: '',
+      kaprodi: '',
+      color: '#2563EB',
+      description: '',
+    });
+    setMajorModalOpen(true);
+  };
+
+  const handleOpenEditMajorModal = (maj: Major) => {
+    setEditingMajor(maj);
+    setMajorForm({
+      id: maj.id,
+      code: maj.code,
+      name: maj.name,
+      kaprodi: maj.kaprodi,
+      color: maj.color,
+      description: maj.description || '',
+    });
+    setMajorModalOpen(true);
+  };
+
+  const handleSaveMajor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!majorForm.code.trim() || !majorForm.name.trim()) {
+      alert('Kode dan Nama Jurusan wajib diisi.');
+      return;
+    }
+
+    const codeClean = majorForm.code.trim().toUpperCase();
+    let updatedMajors: Major[];
+
+    if (editingMajor) {
+      updatedMajors = currentMajors.map((m) =>
+        m.id === editingMajor.id
+          ? { ...majorForm, id: editingMajor.id, code: codeClean }
+          : m
+      );
+      onToast(`Program Keahlian ${majorForm.name} berhasil diperbarui.`);
+    } else {
+      const existing = currentMajors.find((m) => m.id === codeClean || m.code === codeClean);
+      if (existing) {
+        alert(`Kode jurusan "${codeClean}" sudah ada di database.`);
+        return;
+      }
+      const newMaj: Major = {
+        ...majorForm,
+        id: codeClean,
+        code: codeClean,
+      };
+      updatedMajors = [...currentMajors, newMaj];
+      onToast(`Jurusan baru ${newMaj.name} (${newMaj.code}) berhasil ditambahkan.`);
+    }
+
+    onUpdateMajors?.(updatedMajors);
+    setMajorModalOpen(false);
+  };
+
+  const handleDeleteMajor = (maj: Major) => {
+    const classCount = currentClasses.filter((c) => c.majorId === maj.id).length;
+    const studentCount = students.filter((s) => s.majorId === maj.id).length;
+    let confirmMsg = `Hapus data master jurusan ${maj.code} - ${maj.name}?`;
+    if (classCount > 0 || studentCount > 0) {
+      confirmMsg = `PERINGATAN: Terdapat ${classCount} rombel dan ${studentCount} siswa terdaftar di jurusan ini.\n\nApakah Anda yakin ingin menghapus program keahlian ini?`;
+    }
+    if (confirm(confirmMsg)) {
+      const updated = currentMajors.filter((m) => m.id !== maj.id);
+      onUpdateMajors?.(updated);
+      onToast(`Program Keahlian ${maj.code} berhasil dihapus.`);
+    }
+  };
+
+  const handleDownloadTemplateMajor = () => {
+    const templateData = [
+      {
+        Kode_Jurusan: 'TEI',
+        Nama_Jurusan: 'Teknik Elektronika Industri',
+        Kaprodi: 'Ir. Bambang Wijaya, M.T.',
+        Warna: '#0284C7',
+        Keterangan: 'Fokus otomasi robotika industri & microcontroller',
+      },
+      {
+        Kode_Jurusan: 'TJKT',
+        Nama_Jurusan: 'Teknik Jaringan Komputer dan Telekomunikasi',
+        Kaprodi: 'Sulistyo Utomo, S.Kom.',
+        Warna: '#4F46E5',
+        Keterangan: 'Fokus cloud computing, routing & administrasi server',
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_Master_Jurusan');
+    XLSX.writeFile(wb, 'Template_Import_Master_Jurusan_SMKN1_Jember.xlsx');
+    onToast('Template Excel Master Jurusan berhasil diunduh.');
+  };
+
+  const handleFileUploadMajor = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setMajorImportFileName(file.name);
+    setMajorImportError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (rawJson.length === 0) {
+          setMajorImportError('File kosong atau format tidak sesuai.');
+          return;
+        }
+
+        const parsed: Partial<Major>[] = rawJson.map((row) => {
+          const code = String(row['Kode_Jurusan'] || row['Kode'] || row['code'] || '').trim().toUpperCase();
+          const name = String(row['Nama_Jurusan'] || row['Nama'] || row['Program Keahlian'] || '').trim();
+          const kaprodi = String(row['Kaprodi'] || row['Ketua Program'] || row['Kepala'] || '-').trim();
+          const color = String(row['Warna'] || row['color'] || '#2563EB').trim();
+          const description = String(row['Keterangan'] || row['Deskripsi'] || '').trim();
+
+          return {
+            id: code,
+            code,
+            name,
+            kaprodi,
+            color,
+            description,
+          };
+        }).filter(m => Boolean(m.code && m.name));
+
+        if (parsed.length === 0) {
+          setMajorImportError('Tidak ditemukan baris jurusan valid (Kode_Jurusan & Nama_Jurusan wajib diisi).');
+          return;
+        }
+
+        setParsedImportMajorRows(parsed);
+      } catch (err) {
+        console.error('Error parsing excel master jurusan', err);
+        setMajorImportError('Gagal membaca file Excel/CSV. Pastikan format file valid.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleCommitImportMajor = () => {
+    if (parsedImportMajorRows.length === 0) return;
+
+    let updated: Major[] = [];
+    if (importMajorMode === 'replace') {
+      updated = parsedImportMajorRows as Major[];
+    } else {
+      const existingCodes = new Set(currentMajors.map((m) => m.code.toUpperCase()));
+      const newItems = (parsedImportMajorRows as Major[]).filter(
+        (m) => !existingCodes.has(m.code.toUpperCase())
+      );
+      updated = [...currentMajors, ...newItems];
+    }
+
+    onUpdateMajors?.(updated);
+    onToast(`Berhasil mengimpor ${parsedImportMajorRows.length} data program keahlian/jurusan.`);
+    setMajorImportModalOpen(false);
+    setParsedImportMajorRows([]);
+    setMajorImportFileName('');
+  };
+
+  const handleExportMajors = () => {
+    const exportRows = filteredMajors.map((m, idx) => {
+      const classCount = currentClasses.filter((c) => c.majorId === m.id).length;
+      const studentCount = students.filter((s) => s.majorId === m.id).length;
+      return {
+        No: idx + 1,
+        Kode_Jurusan: m.code,
+        Nama_Program_Keahlian: m.name,
+        Kaprodi: m.kaprodi,
+        Warna_Label: m.color,
+        Jumlah_Rombel: classCount,
+        Jumlah_Siswa: studentCount,
+        Keterangan: m.description || '-',
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Master_Jurusan');
+    XLSX.writeFile(wb, `Master_Jurusan_SMKN1_Jember_${new Date().toISOString().split('T')[0]}.xlsx`);
+    onToast('Data master jurusan berhasil diekspor ke Excel.');
   };
 
   const handleSaveStudent = (e: React.FormEvent) => {
@@ -1086,6 +1674,18 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveTab('kelas_jurusan')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'kelas_jurusan'
+              ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-800/50'
+          }`}
+        >
+          <Building className="w-4 h-4" />
+          <span>Master Kelas &amp; Jurusan ({currentClasses.length} Kls / {currentMajors.length} Jur)</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('guru_bk')}
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
             activeTab === 'guru_bk'
@@ -1143,11 +1743,14 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
               <select
                 value={selectedMajor}
-                onChange={(e) => setSelectedMajor(e.target.value)}
+                onChange={(e) => {
+                  setSelectedMajor(e.target.value);
+                  setSelectedClass('ALL');
+                }}
                 className="py-2 px-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
               >
-                <option value="ALL">Semua Jurusan</option>
-                {MAJORS.map((m) => (
+                <option value="ALL">Semua Jurusan ({currentMajors.length})</option>
+                {currentMajors.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.code} - {m.name.split('(')[0]}
                   </option>
@@ -1159,8 +1762,8 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                 onChange={(e) => setSelectedClass(e.target.value)}
                 className="py-2 px-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
               >
-                <option value="ALL">Semua Kelas ({uniqueClasses.length})</option>
-                {uniqueClasses.map((cls) => (
+                <option value="ALL">Semua Kelas ({availableClassesForFilter.length})</option>
+                {availableClassesForFilter.map((cls) => (
                   <option key={cls} value={cls}>
                     {cls}
                   </option>
@@ -1305,7 +1908,410 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* TAB 2: MASTER GURU BK                                    */}
+      {/* TAB 2: MASTER KELAS & JURUSAN                            */}
+      {/* ======================================================== */}
+      {activeTab === 'kelas_jurusan' && (
+        <div className="space-y-4">
+          {/* Sub-tab Navigation and Global Statistics */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 transition-colors">
+            {/* Sub-tab pills */}
+            <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-lg w-fit">
+              <button
+                onClick={() => setKjSubTab('kelas')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                  kjSubTab === 'kelas'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <School className="w-3.5 h-3.5" />
+                <span>Master Rombel / Kelas ({currentClasses.length})</span>
+              </button>
+
+              <button
+                onClick={() => setKjSubTab('jurusan')}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                  kjSubTab === 'jurusan'
+                    ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Master Program Keahlian / Jurusan ({currentMajors.length})</span>
+              </button>
+            </div>
+
+            {/* Quick stats badges */}
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 rounded-full font-medium">
+                Tingkat X: {currentClasses.filter((c) => c.grade === 'X').length} | XI: {currentClasses.filter((c) => c.grade === 'XI').length} | XII: {currentClasses.filter((c) => c.grade === 'XII').length} Kelas
+              </span>
+              <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full font-medium">
+                {students.length} Siswa Terploting
+              </span>
+            </div>
+          </div>
+
+          {/* VIEW A: MASTER ROMBEL / KELAS */}
+          {kjSubTab === 'kelas' && (
+            <div className="space-y-4">
+              {/* Toolbar Kelas */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between transition-colors">
+                <div className="w-full md:w-72 relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={classSearch}
+                    onChange={(e) => setClassSearch(e.target.value)}
+                    placeholder="Cari Rombel, Wali Kelas, Ruang..."
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <select
+                    value={classGradeFilter}
+                    onChange={(e) => setClassGradeFilter(e.target.value)}
+                    className="py-2 px-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="ALL">Semua Tingkat</option>
+                    <option value="X">Kelas X</option>
+                    <option value="XI">Kelas XI</option>
+                    <option value="XII">Kelas XII</option>
+                  </select>
+
+                  <select
+                    value={classMajorFilter}
+                    onChange={(e) => setClassMajorFilter(e.target.value)}
+                    className="py-2 px-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="ALL">Semua Jurusan</option>
+                    {currentMajors.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.code}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleDownloadTemplateClass}
+                    className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Unduh Format Excel Master Kelas"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Format Excel</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setClassImportError(null);
+                      setParsedImportClassRows([]);
+                      setClassImportModalOpen(true);
+                    }}
+                    className="px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Impor Master Kelas dari Excel/CSV"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import Excel</span>
+                  </button>
+
+                  <button
+                    onClick={handleExportClasses}
+                    className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Ekspor Seluruh Data Rombel ke Excel"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Ekspor Excel</span>
+                  </button>
+
+                  <button
+                    onClick={handleOpenAddClassModal}
+                    className="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-700 hover:bg-indigo-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Kelas</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Table Kelas */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
+                {filteredClasses.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-xs">
+                    Tidak ditemukan data rombel/kelas yang sesuai pencarian atau filter.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                      <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] border-b border-slate-200 dark:border-slate-800 tracking-wider">
+                        <tr>
+                          <th className="py-3 px-3 w-12 text-center">No</th>
+                          <th className="py-3 px-3">Nama Rombel / Kelas</th>
+                          <th className="py-3 px-3">Tingkat</th>
+                          <th className="py-3 px-3">Program Keahlian</th>
+                          <th className="py-3 px-3">Wali Kelas</th>
+                          <th className="py-3 px-3">Ruangan / Lab</th>
+                          <th className="py-3 px-3 text-center">Jumlah Siswa</th>
+                          <th className="py-3 px-3 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {filteredClasses.map((cls, idx) => {
+                          const maj = currentMajors.find((m) => m.id === cls.majorId);
+                          const studentCount = students.filter((s) => s.className === cls.name).length;
+                          return (
+                            <tr
+                              key={cls.id}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              <td className="py-2.5 px-3 text-center text-slate-400 text-[11px] font-mono">
+                                {idx + 1}
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <School className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                  <span>{cls.name}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  cls.grade === 'X'
+                                    ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                                    : cls.grade === 'XI'
+                                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300'
+                                    : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                                }`}>
+                                  Kelas {cls.grade}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 whitespace-nowrap">
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium"
+                                  style={{
+                                    backgroundColor: maj ? `${maj.color}15` : '#2563EB15',
+                                    color: maj ? maj.color : '#2563EB',
+                                    border: `1px solid ${maj ? `${maj.color}35` : '#2563EB35'}`,
+                                  }}
+                                >
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full"
+                                    style={{ backgroundColor: maj ? maj.color : '#2563EB' }}
+                                  />
+                                  <span>{maj ? maj.code : cls.majorId}</span>
+                                  <span className="text-slate-400 dark:text-slate-500 font-normal">
+                                    • {maj ? maj.name.split('(')[0] : ''}
+                                  </span>
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <UserCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span>{cls.waliKelas || '-'}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 whitespace-nowrap text-[11px]">
+                                {cls.room || '-'}
+                              </td>
+                              <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                  studentCount > 0
+                                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                }`}>
+                                  {studentCount} Siswa
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => handleOpenEditClassModal(cls)}
+                                    className="p-1.5 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded transition-colors"
+                                    title="Edit Rombel"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClass(cls)}
+                                    className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded transition-colors"
+                                    title="Hapus Rombel"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* VIEW B: MASTER JURUSAN / PROGRAM KEAHLIAN */}
+          {kjSubTab === 'jurusan' && (
+            <div className="space-y-4">
+              {/* Toolbar Jurusan */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between transition-colors">
+                <div className="w-full md:w-80 relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={majorSearch}
+                    onChange={(e) => setMajorSearch(e.target.value)}
+                    placeholder="Cari Kode Jurusan, Nama, Kaprodi..."
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleDownloadTemplateMajor}
+                    className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Unduh Format Excel Master Jurusan"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                    <span>Format Excel</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMajorImportError(null);
+                      setParsedImportMajorRows([]);
+                      setMajorImportModalOpen(true);
+                    }}
+                    className="px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Impor Master Jurusan dari Excel/CSV"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import Excel</span>
+                  </button>
+
+                  <button
+                    onClick={handleExportMajors}
+                    className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                    title="Ekspor Seluruh Data Jurusan ke Excel"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Ekspor Excel</span>
+                  </button>
+
+                  <button
+                    onClick={handleOpenAddMajorModal}
+                    className="px-3.5 py-2 text-xs font-semibold text-white bg-indigo-700 hover:bg-indigo-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Jurusan</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Table Jurusan */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
+                {filteredMajors.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 dark:text-slate-500 text-xs">
+                    Tidak ditemukan data program keahlian yang sesuai pencarian.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
+                      <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[10px] border-b border-slate-200 dark:border-slate-800 tracking-wider">
+                        <tr>
+                          <th className="py-3 px-3 w-12 text-center">No</th>
+                          <th className="py-3 px-3">Kode Jurusan</th>
+                          <th className="py-3 px-3">Nama Program Keahlian</th>
+                          <th className="py-3 px-3">Kepala Program (Kaprodi)</th>
+                          <th className="py-3 px-3 text-center">Total Rombel</th>
+                          <th className="py-3 px-3 text-center">Total Siswa</th>
+                          <th className="py-3 px-3">Fokus / Deskripsi Keahlian</th>
+                          <th className="py-3 px-3 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {filteredMajors.map((maj, idx) => {
+                          const classCount = currentClasses.filter((c) => c.majorId === maj.id).length;
+                          const studentCount = students.filter((s) => s.majorId === maj.id).length;
+                          return (
+                            <tr
+                              key={maj.id}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              <td className="py-3 px-3 text-center text-slate-400 text-[11px] font-mono">
+                                {idx + 1}
+                              </td>
+                              <td className="py-3 px-3 whitespace-nowrap">
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold"
+                                  style={{
+                                    backgroundColor: `${maj.color}15`,
+                                    color: maj.color,
+                                    border: `1px solid ${maj.color}40`,
+                                  }}
+                                >
+                                  <span
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: maj.color }}
+                                  />
+                                  <span>{maj.code}</span>
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-semibold text-slate-900 dark:text-white">
+                                {maj.name}
+                              </td>
+                              <td className="py-3 px-3 text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5">
+                                  <GraduationCap className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span>{maj.kaprodi || '-'}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
+                                  {classCount} Rombel
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                                  {studentCount} Siswa
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-slate-500 dark:text-slate-400 text-[11px] max-w-xs truncate">
+                                {maj.description || '-'}
+                              </td>
+                              <td className="py-3 px-3 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => handleOpenEditMajorModal(maj)}
+                                    className="p-1.5 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded transition-colors"
+                                    title="Edit Jurusan"
+                                  >
+                                    <Edit className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMajor(maj)}
+                                    className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded transition-colors"
+                                    title="Hapus Jurusan"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB 3: MASTER GURU BK                                    */}
       {/* ======================================================== */}
       {activeTab === 'guru_bk' && (
         <div className="space-y-4">
@@ -1930,15 +2936,15 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">Jurusan</label>
+                  <label className="block font-semibold mb-1">Jurusan / Keahlian</label>
                   <select
                     value={formData.majorId}
-                    onChange={(e) => setFormData({ ...formData, majorId: e.target.value as MajorId })}
+                    onChange={(e) => handleSelectMajorInStudentForm(e.target.value as MajorId)}
                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
                   >
-                    {MAJORS.map((m) => (
+                    {currentMajors.map((m) => (
                       <option key={m.id} value={m.id}>
-                        {m.code}
+                        {m.code} - {m.name.split('(')[0]}
                       </option>
                     ))}
                   </select>
@@ -1947,7 +2953,19 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                   <label className="block font-semibold mb-1">Tingkat</label>
                   <select
                     value={formData.grade}
-                    onChange={(e) => setFormData({ ...formData, grade: e.target.value as any })}
+                    onChange={(e) => {
+                      const newGrade = e.target.value as GradeLevel;
+                      // auto find class matching this grade and major
+                      const matchedClass = currentClasses.find(
+                        (c) => c.grade === newGrade && c.majorId === formData.majorId
+                      );
+                      setFormData({
+                        ...formData,
+                        grade: newGrade,
+                        className: matchedClass && !useCustomClassName ? matchedClass.name : formData.className,
+                        waliKelas: matchedClass && !useCustomClassName ? matchedClass.waliKelas : formData.waliKelas,
+                      });
+                    }}
                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
                   >
                     <option value="X">Kelas X</option>
@@ -1957,20 +2975,64 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                 </div>
               </div>
 
+              {/* Integrasi Pilihan Kelas dari Master Data */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold mb-1">Rombel / Kelas Lengkap</label>
-                  <input
-                    type="text"
-                    value={formData.className}
-                    onChange={(e) => setFormData({ ...formData, className: e.target.value })}
-                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
-                    placeholder="Contoh: X RPL 1"
-                    required
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold">
+                      Pilihan Rombel / Kelas <span className="text-blue-600 dark:text-blue-400 font-normal">(Master Data)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setUseCustomClassName(!useCustomClassName)}
+                      className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {useCustomClassName ? '← Pilih dari Master' : 'Ketik Manual'}
+                    </button>
+                  </div>
+
+                  {!useCustomClassName ? (
+                    <select
+                      value={formData.className}
+                      onChange={(e) => handleSelectClassInStudentForm(e.target.value)}
+                      className="w-full p-2 border border-blue-400 dark:border-blue-600 rounded-lg bg-blue-50/40 dark:bg-slate-800 font-semibold text-slate-900 dark:text-white"
+                      required
+                    >
+                      <optgroup label={`Rombel Jurusan ${formData.majorId} (${currentClasses.filter((c) => c.majorId === formData.majorId).length} Kelas)`}>
+                        {currentClasses
+                          .filter((c) => c.majorId === formData.majorId)
+                          .map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name} {c.waliKelas ? `— Wali: ${c.waliKelas}` : ''}
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="Rombel Jurusan Lainnya">
+                        {currentClasses
+                          .filter((c) => c.majorId !== formData.majorId)
+                          .map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name} ({c.majorId})
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.className}
+                      onChange={(e) => setFormData({ ...formData, className: e.target.value })}
+                      className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                      placeholder="Contoh: X RPL 1 (Kustom)"
+                      required
+                    />
+                  )}
                 </div>
+
                 <div>
-                  <label className="block font-semibold mb-1">Wali Kelas</label>
+                  <label className="block font-semibold mb-1">
+                    Wali Kelas <span className="text-slate-400 font-normal">(Otomatis Terisi)</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.waliKelas}
@@ -1981,6 +3043,21 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* Status banner integrasi otomatis */}
+              {currentClasses.find((c) => c.name === formData.className) && (
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>
+                      Terintegrasi Master Data: Tingkat {formData.grade} • Jurusan {formData.majorId} • Wali: <strong>{formData.waliKelas || '-'}</strong>
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-mono font-semibold">
+                    Auto-Sync
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -2902,6 +3979,560 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
               >
                 <FileCheck className="w-4 h-4" />
                 <span>Simpan {parsedImportKesiswaanRows.length} Tim Kesiswaan ke Database</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: TAMBAH / EDIT KELAS                               */}
+      {/* ======================================================== */}
+      {classModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <School className="w-4 h-4 text-indigo-400" />
+                <h3 className="font-bold text-sm">
+                  {editingClass ? `Edit Rombel: ${editingClass.name}` : 'Tambah Rombel / Kelas Baru'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setClassModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveClass} className="p-5 space-y-3.5 text-xs text-slate-800 dark:text-slate-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Tingkat Kelas</label>
+                  <select
+                    value={classForm.grade}
+                    onChange={(e) => {
+                      const nextGrade = e.target.value as GradeLevel;
+                      setClassForm((prev) => ({
+                        ...prev,
+                        grade: nextGrade,
+                        name: prev.name ? `${nextGrade} ${prev.majorId} ${prev.name.split(' ').pop() || '1'}` : `${nextGrade} ${prev.majorId} 1`,
+                      }));
+                    }}
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-semibold"
+                  >
+                    <option value="X">Kelas X</option>
+                    <option value="XI">Kelas XI</option>
+                    <option value="XII">Kelas XII</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">Program Keahlian</label>
+                  <select
+                    value={classForm.majorId}
+                    onChange={(e) => {
+                      const nextMajor = e.target.value;
+                      setClassForm((prev) => ({
+                        ...prev,
+                        majorId: nextMajor,
+                        name: prev.name ? `${prev.grade} ${nextMajor} ${prev.name.split(' ').pop() || '1'}` : `${prev.grade} ${nextMajor} 1`,
+                      }));
+                    }}
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-semibold"
+                  >
+                    {currentMajors.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.code} - {m.name.split('(')[0]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Nama Rombel / Kelas</label>
+                <input
+                  type="text"
+                  value={classForm.name}
+                  onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-bold bg-white dark:bg-slate-800"
+                  placeholder="Contoh: X RPL 1, XI AKL 2"
+                  required
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Format standar sekolah: [Tingkat] [Kode Jurusan] [Nomor Rombel]
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Nama Wali Kelas</label>
+                <input
+                  type="text"
+                  value={classForm.waliKelas}
+                  onChange={(e) => setClassForm({ ...classForm, waliKelas: e.target.value })}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                  placeholder="Contoh: Danang Prasetyo, S.Kom."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Ruang Kelas / Laboratorium / Studio (Opsional)</label>
+                <input
+                  type="text"
+                  value={classForm.room || ''}
+                  onChange={(e) => setClassForm({ ...classForm, room: e.target.value })}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                  placeholder="Contoh: Lab Rekayasa 1, R. Teori 204"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setClassModalOpen(false)}
+                  className="px-3.5 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-semibold shadow-xs"
+                >
+                  {editingClass ? 'Simpan Perubahan' : 'Tambahkan Rombel'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: TAMBAH / EDIT JURUSAN                             */}
+      {/* ======================================================== */}
+      {majorModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <h3 className="font-bold text-sm">
+                  {editingMajor ? `Edit Jurusan: ${editingMajor.code}` : 'Tambah Program Keahlian Baru'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setMajorModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMajor} className="p-5 space-y-3.5 text-xs text-slate-800 dark:text-slate-200">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Kode Singkat</label>
+                  <input
+                    type="text"
+                    value={majorForm.code}
+                    onChange={(e) => setMajorForm({ ...majorForm, code: e.target.value.toUpperCase() })}
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-mono font-bold uppercase bg-white dark:bg-slate-800"
+                    placeholder="RPL"
+                    required
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block font-semibold mb-1">Nama Program Keahlian</label>
+                  <input
+                    type="text"
+                    value={majorForm.name}
+                    onChange={(e) => setMajorForm({ ...majorForm, name: e.target.value })}
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium"
+                    placeholder="Contoh: Pengembangan Perangkat Lunak & Gim"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Kepala Program Keahlian (Kaprodi)</label>
+                <input
+                  type="text"
+                  value={majorForm.kaprodi}
+                  onChange={(e) => setMajorForm({ ...majorForm, kaprodi: e.target.value })}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                  placeholder="Contoh: Ir. Budi Santoso, S.Kom., M.T."
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Warna Badge / Identitas Visual</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={majorForm.color}
+                    onChange={(e) => setMajorForm({ ...majorForm, color: e.target.value })}
+                    className="w-9 h-8 p-0.5 border border-slate-300 dark:border-slate-700 rounded-lg cursor-pointer bg-white dark:bg-slate-800"
+                  />
+                  <input
+                    type="text"
+                    value={majorForm.color}
+                    onChange={(e) => setMajorForm({ ...majorForm, color: e.target.value })}
+                    className="flex-1 p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-mono text-[11px] bg-white dark:bg-slate-800"
+                    placeholder="#2563EB"
+                  />
+                  <div
+                    className="px-2.5 py-1 rounded text-[11px] font-bold text-white shadow-xs"
+                    style={{ backgroundColor: majorForm.color }}
+                  >
+                    Preview
+                  </div>
+                </div>
+                {/* Preset colors */}
+                <div className="flex items-center gap-1.5 mt-2">
+                  {['#2563EB', '#059669', '#D97706', '#7C3AED', '#DB2777', '#EA580C', '#0891B2', '#4F46E5'].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setMajorForm({ ...majorForm, color: c })}
+                      className="w-5 h-5 rounded-full border border-white dark:border-slate-800 shadow-xs hover:scale-110 transition-transform"
+                      style={{ backgroundColor: c }}
+                      title={c}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">Fokus Keahlian / Deskripsi (Opsional)</label>
+                <textarea
+                  value={majorForm.description || ''}
+                  onChange={(e) => setMajorForm({ ...majorForm, description: e.target.value })}
+                  rows={2}
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-[11px]"
+                  placeholder="Fokus keahlian, kompetensi dasar, dan bengkel/studio praktik..."
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMajorModalOpen(false)}
+                  className="px-3.5 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-semibold shadow-xs"
+                >
+                  {editingMajor ? 'Simpan Perubahan' : 'Tambahkan Jurusan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: IMPORT MASTER KELAS DARI EXCEL                    */}
+      {/* ======================================================== */}
+      {classImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <School className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-sm">Import Master Data Rombel / Kelas dari Excel</h3>
+              </div>
+              <button
+                onClick={() => setClassImportModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700 dark:text-slate-300">
+              <div className="bg-indigo-50 dark:bg-indigo-950/40 p-3.5 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] space-y-1">
+                  <p className="font-semibold text-indigo-900 dark:text-indigo-200">
+                    Format Kolom Template Excel Master Kelas:
+                  </p>
+                  <p className="text-indigo-800 dark:text-indigo-300 font-mono">
+                    Nama_Kelas | Tingkat | Kode_Jurusan | Wali_Kelas | Ruang_Kelas
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplateClass}
+                    className="font-semibold text-indigo-700 dark:text-indigo-400 underline hover:text-indigo-900 mt-1 inline-flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Unduh Template Contoh Kelas (.xlsx)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <input
+                  ref={classFileInputRef}
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUploadClass}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => classFileInputRef.current?.click()}
+                  className="w-full py-6 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl flex flex-col items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800/40 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {classImportFileName ? classImportFileName : 'Pilih File Excel / CSV Master Kelas'}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Klik di sini untuk menelusuri file dari komputer
+                  </span>
+                </button>
+              </div>
+
+              {classImportError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{classImportError}</span>
+                </div>
+              )}
+
+              {parsedImportClassRows.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Preview Data ({parsedImportClassRows.length} Kelas terbaca):
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importClassMode"
+                          checked={importClassMode === 'append'}
+                          onChange={() => setImportClassMode('append')}
+                        />
+                        <span>Tambahkan (Append)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importClassMode"
+                          checked={importClassMode === 'replace'}
+                          onChange={() => setImportClassMode('replace')}
+                        />
+                        <span className="text-red-600 font-semibold">Ganti Seluruh Data Kelas</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-48">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 sticky top-0">
+                        <tr>
+                          <th className="py-1.5 px-2">Nama Kelas</th>
+                          <th className="py-1.5 px-2">Tingkat</th>
+                          <th className="py-1.5 px-2">Jurusan</th>
+                          <th className="py-1.5 px-2">Wali Kelas</th>
+                          <th className="py-1.5 px-2">Ruang / Lab</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {parsedImportClassRows.slice(0, 8).map((r, i) => (
+                          <tr key={i}>
+                            <td className="py-1 px-2 font-bold">{r.name}</td>
+                            <td className="py-1 px-2">{r.grade}</td>
+                            <td className="py-1 px-2 font-mono">{r.majorId}</td>
+                            <td className="py-1 px-2">{r.waliKelas}</td>
+                            <td className="py-1 px-2">{r.room || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setClassImportModalOpen(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={parsedImportClassRows.length === 0}
+                onClick={handleCommitImportClass}
+                className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs flex items-center gap-1.5 shadow-xs"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Simpan {parsedImportClassRows.length} Kelas ke Database</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: IMPORT MASTER JURUSAN DARI EXCEL                  */}
+      {/* ======================================================== */}
+      {majorImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-sm">Import Master Data Program Keahlian / Jurusan dari Excel</h3>
+              </div>
+              <button
+                onClick={() => setMajorImportModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700 dark:text-slate-300">
+              <div className="bg-indigo-50 dark:bg-indigo-950/40 p-3.5 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] space-y-1">
+                  <p className="font-semibold text-indigo-900 dark:text-indigo-200">
+                    Format Kolom Template Excel Master Jurusan:
+                  </p>
+                  <p className="text-indigo-800 dark:text-indigo-300 font-mono">
+                    Kode_Jurusan | Nama_Jurusan | Kaprodi | Warna | Keterangan
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplateMajor}
+                    className="font-semibold text-indigo-700 dark:text-indigo-400 underline hover:text-indigo-900 mt-1 inline-flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Unduh Template Contoh Jurusan (.xlsx)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <input
+                  ref={majorFileInputRef}
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUploadMajor}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => majorFileInputRef.current?.click()}
+                  className="w-full py-6 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 rounded-xl flex flex-col items-center justify-center gap-2 bg-slate-50 dark:bg-slate-800/40 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {majorImportFileName ? majorImportFileName : 'Pilih File Excel / CSV Master Jurusan'}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Klik di sini untuk menelusuri file dari komputer
+                  </span>
+                </button>
+              </div>
+
+              {majorImportError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{majorImportError}</span>
+                </div>
+              )}
+
+              {parsedImportMajorRows.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Preview Data ({parsedImportMajorRows.length} Jurusan terbaca):
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importMajorMode"
+                          checked={importMajorMode === 'append'}
+                          onChange={() => setImportMajorMode('append')}
+                        />
+                        <span>Tambahkan (Append)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importMajorMode"
+                          checked={importMajorMode === 'replace'}
+                          onChange={() => setImportMajorMode('replace')}
+                        />
+                        <span className="text-red-600 font-semibold">Ganti Seluruh Data Jurusan</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-48">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 sticky top-0">
+                        <tr>
+                          <th className="py-1.5 px-2">Kode</th>
+                          <th className="py-1.5 px-2">Nama Program Keahlian</th>
+                          <th className="py-1.5 px-2">Kaprodi</th>
+                          <th className="py-1.5 px-2">Warna</th>
+                          <th className="py-1.5 px-2">Keterangan</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {parsedImportMajorRows.slice(0, 8).map((r, i) => (
+                          <tr key={i}>
+                            <td className="py-1 px-2 font-mono font-bold">{r.code}</td>
+                            <td className="py-1 px-2 font-medium">{r.name}</td>
+                            <td className="py-1 px-2">{r.kaprodi}</td>
+                            <td className="py-1 px-2">
+                              <span
+                                className="inline-block w-4 h-4 rounded-full border border-slate-300"
+                                style={{ backgroundColor: r.color }}
+                              />
+                            </td>
+                            <td className="py-1 px-2 text-slate-400">{r.description || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setMajorImportModalOpen(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={parsedImportMajorRows.length === 0}
+                onClick={handleCommitImportMajor}
+                className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs flex items-center gap-1.5 shadow-xs"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Simpan {parsedImportMajorRows.length} Jurusan ke Database</span>
               </button>
             </div>
           </div>

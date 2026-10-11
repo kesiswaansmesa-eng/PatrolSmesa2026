@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Student, LateRecord, CounselingEntry, CounselingLevel, GuruBK, TimKesiswaan } from '../types/patrol';
+import { Student, LateRecord, CounselingEntry, CounselingLevel, GuruBK, TimKesiswaan, SchoolClass } from '../types/patrol';
 import { formatIndonesianDate, generateWhatsAppLink } from '../utils/storage';
 import { 
   ShieldAlert, 
@@ -27,6 +27,7 @@ interface PembinaanViewProps {
   counselingEntries: CounselingEntry[];
   guruBK?: GuruBK[];
   timKesiswaan?: TimKesiswaan[];
+  classes?: SchoolClass[];
   onAddCounselingEntry: (entry: Omit<CounselingEntry, 'id'>) => void;
   onPrintCallLetter: (record: LateRecord, student: Student) => void;
   onPrintCommitmentLetter: (student: Student, count: number) => void;
@@ -38,6 +39,7 @@ export const PembinaanView: React.FC<PembinaanViewProps> = ({
   counselingEntries,
   guruBK = [],
   timKesiswaan = [],
+  classes = [],
   onAddCounselingEntry,
   onPrintCallLetter,
   onPrintCommitmentLetter,
@@ -63,7 +65,9 @@ export const PembinaanView: React.FC<PembinaanViewProps> = ({
   const [counselingDate, setCounselingDate] = useState(new Date().toISOString().split('T')[0]);
   const [counselingStatus, setCounselingStatus] = useState<'Selesai' | 'Dalam Pemantauan' | 'Jadwal Temu Orang Tua'>('Dalam Pemantauan');
 
-  const uniqueClasses = Array.from(new Set(students.map((s) => s.className))).sort();
+  const uniqueClasses = classes.length > 0
+    ? Array.from(new Set(classes.map((c) => c.name))).sort()
+    : Array.from(new Set(students.map((s) => s.className))).sort();
 
   // Count late incidents per student
   const studentLateCount: Record<string, number> = {};
