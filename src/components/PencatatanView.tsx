@@ -38,8 +38,8 @@ export const PencatatanView: React.FC<PencatatanViewProps> = ({
   onUpdateStatus,
   onPrintCallLetter,
 }) => {
-  const currentMajors = majors.length > 0 ? majors : MAJORS;
-  const currentClasses = classes.length > 0 ? classes : INITIAL_CLASSES;
+  const currentMajors = majors;
+  const currentClasses = classes;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMajor, setSelectedMajor] = useState<string>('ALL');

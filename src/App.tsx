@@ -57,14 +57,23 @@ import {
   saveRecordCloud,
   deleteRecordCloud,
   saveStudentsBatchCloud,
+  deleteStudentCloud,
   saveCounselingCloud,
   saveAccountCloud,
+  deleteAccountCloud,
   saveMasterGuruBKCloud,
+  deleteMasterGuruBKCloud,
   saveMasterKKKCloud,
+  deleteMasterKKKCloud,
   saveMasterTimKesiswaanCloud,
+  deleteMasterTimKesiswaanCloud,
   saveMasterMajorCloud,
+  deleteMasterMajorCloud,
   saveMasterClassCloud,
-  saveSettingsCloud
+  deleteMasterClassCloud,
+  saveSettingsCloud,
+  resetViolationsCloud,
+  wipeAllCloudData
 } from './utils/firebaseSync';
 import { testConnection } from './lib/firebase';
 import { AppSettings, DEFAULT_SETTINGS } from './types/patrol';
@@ -137,11 +146,9 @@ export default function App() {
       setActiveRole(getStoredRole());
     }
 
-    // Test cloud database connection and seed initial data if collections are empty
-    testConnection().then(() => {
-      seedInitialDataIfEmpty().catch((err) => {
-        console.warn('Initial cloud seed notice:', err);
-      });
+    // Test cloud database connection
+    testConnection().catch((err) => {
+      console.warn('Initial cloud connection notice:', err);
     });
 
     // Start Realtime synchronization with Cloud Firestore
@@ -358,42 +365,78 @@ export default function App() {
 
   // Update master handlers
   const handleUpdateStudents = (newStudents: Student[]) => {
+    // Delete any removed students from cloud
+    const newIds = new Set(newStudents.map((s) => s.id));
+    students.filter((s) => !newIds.has(s.id)).forEach((s) => {
+      deleteStudentCloud(s.id).catch(console.warn);
+    });
+
     setStudents(newStudents);
     saveStoredStudents(newStudents);
     saveStudentsBatchCloud(newStudents).catch(console.warn);
   };
 
   const handleUpdateMajors = (newList: Major[]) => {
+    const newIds = new Set(newList.map((m) => m.id));
+    majors.filter((m) => !newIds.has(m.id)).forEach((m) => {
+      deleteMasterMajorCloud(m.id).catch(console.warn);
+    });
+
     setMajors(newList);
     saveStoredMajors(newList);
     newList.forEach((m) => saveMasterMajorCloud(m).catch(console.warn));
   };
 
   const handleUpdateClasses = (newList: SchoolClass[]) => {
+    const newIds = new Set(newList.map((c) => c.id));
+    schoolClasses.filter((c) => !newIds.has(c.id)).forEach((c) => {
+      deleteMasterClassCloud(c.id).catch(console.warn);
+    });
+
     setSchoolClasses(newList);
     saveStoredClasses(newList);
     newList.forEach((c) => saveMasterClassCloud(c).catch(console.warn));
   };
 
   const handleUpdateGuruBK = (newList: GuruBK[]) => {
+    const newIds = new Set(newList.map((g) => g.id));
+    guruBK.filter((g) => !newIds.has(g.id)).forEach((g) => {
+      deleteMasterGuruBKCloud(g.id).catch(console.warn);
+    });
+
     setGuruBK(newList);
     saveStoredGuruBK(newList);
     newList.forEach((g) => saveMasterGuruBKCloud(g).catch(console.warn));
   };
 
   const handleUpdateKKK = (newList: KKK[]) => {
+    const newIds = new Set(newList.map((k) => k.id));
+    kkkList.filter((k) => !newIds.has(k.id)).forEach((k) => {
+      deleteMasterKKKCloud(k.id).catch(console.warn);
+    });
+
     setKKKList(newList);
     saveStoredKKK(newList);
     newList.forEach((k) => saveMasterKKKCloud(k).catch(console.warn));
   };
 
   const handleUpdateTimKesiswaan = (newList: TimKesiswaan[]) => {
+    const newIds = new Set(newList.map((t) => t.id));
+    timKesiswaan.filter((t) => !newIds.has(t.id)).forEach((t) => {
+      deleteMasterTimKesiswaanCloud(t.id).catch(console.warn);
+    });
+
     setTimKesiswaan(newList);
     saveStoredTimKesiswaan(newList);
     newList.forEach((t) => saveMasterTimKesiswaanCloud(t).catch(console.warn));
   };
 
   const handleUpdateAccounts = (newList: UserAccount[]) => {
+    const newIds = new Set(newList.map((a) => a.id));
+    accounts.filter((a) => !newIds.has(a.id)).forEach((a) => {
+      deleteAccountCloud(a.id).catch(console.warn);
+    });
+
     setAccounts(newList);
     saveStoredAccounts(newList);
     newList.forEach((a) => saveAccountCloud(a).catch(console.warn));
@@ -404,6 +447,7 @@ export default function App() {
     resetViolationsOnly();
     setRecords([]);
     setCounselingEntries([]);
+    resetViolationsCloud().catch(console.warn);
     triggerToast('Seluruh riwayat pelanggaran dan pembinaan siswa berhasil direset.');
   };
 
@@ -414,6 +458,7 @@ export default function App() {
     setCounselingEntries([]);
     setStudents([]);
     setSchoolClasses([]);
+    wipeAllCloudData().catch(console.warn);
     triggerToast('Basis data operasional berhasil dihapus bersih.');
   };
 

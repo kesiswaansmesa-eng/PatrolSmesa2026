@@ -3,6 +3,7 @@ import { SchoolLogo } from './SchoolLogo';
 import { AppRole, UserSession, AppSettings, UserAccount } from '../types/patrol';
 import { getStoredAccounts, saveStoredAccounts } from '../utils/storage';
 import { saveAccountCloud, subscribeSyncStatus, CloudSyncStatus } from '../utils/firebaseSync';
+import { INITIAL_ACCOUNTS } from '../data/initialData';
 import { 
   ShieldAlert, 
   GraduationCap, 
@@ -40,7 +41,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   theme = 'dark', 
   onToggleTheme 
 }) => {
-  const activeAccounts = accounts && accounts.length > 0 ? accounts : getStoredAccounts();
+  const activeAccounts = accounts;
 
   // Role Category Filter
   const [roleFilter, setRoleFilter] = useState<'all' | AppRole>('all');
@@ -167,8 +168,40 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     });
 
     if (!matched) {
+      if (activeAccounts.length === 0 && (q === 'kesiswaan' || q === 'admin') && passwordInput.trim() === 'admin123') {
+        const bootstrapAdmin: UserAccount = {
+          id: 'acc-admin-bootstrap',
+          username: 'kesiswaan',
+          password: 'admin123',
+          role: 'kesiswaan',
+          roleTitle: 'Koordinator Kesiswaan & Ketertiban',
+          name: 'Admin Kesiswaan (SMKN 1 Jember)',
+          email: 'kesiswaan@smkn1jember.sch.id',
+          phone: '081234567890',
+          nip: '197505122000031001',
+          status: 'Aktif',
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+        };
+        saveAccountCloud(bootstrapAdmin).catch(console.warn);
+        saveStoredAccounts([bootstrapAdmin]);
+        onLoginSuccess({
+          accountId: bootstrapAdmin.id,
+          username: bootstrapAdmin.username,
+          role: bootstrapAdmin.role,
+          name: bootstrapAdmin.name,
+          title: bootstrapAdmin.roleTitle,
+          email: bootstrapAdmin.email || 'kesiswaan@smkn1jember.sch.id',
+          phone: bootstrapAdmin.phone,
+          nip: bootstrapAdmin.nip,
+        });
+        return;
+      }
+
       setErrorMessage(
-        'Akun tidak terdaftar. Pastikan Username atau NIP sesuai dengan data akun yang dibuat oleh Admin Tim Kesiswaan.'
+        activeAccounts.length === 0
+          ? 'Tabel Akun di basis data Cloud sedang kosong. Silakan masuk sebagai Admin Darurat (Username: "kesiswaan", Sandi: "admin123").'
+          : 'Akun tidak terdaftar. Pastikan Username atau NIP sesuai dengan data akun pada basis data tabel.'
       );
       return;
     }
@@ -376,8 +409,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               {/* Accounts Cards List */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
                 {filteredAccounts.length === 0 ? (
-                  <div className="col-span-2 text-center py-10 bg-slate-900/50 rounded-xl border border-slate-800 text-slate-400 text-xs">
-                    Tidak ada akun yang cocok dengan pencarian / filter ini.
+                  <div className="col-span-2 text-center py-8 px-4 bg-slate-900/60 rounded-xl border border-slate-800 text-slate-300 text-xs space-y-3">
+                    {activeAccounts.length === 0 ? (
+                      <>
+                        <div className="text-amber-400 font-semibold flex items-center justify-center gap-1.5">
+                          <AlertCircle className="w-4 h-4" />
+                          <span>Basis Data Akun Kosong (Sesuai Firestore)</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+                          Data akun di database Cloud saat ini kosong (tidak ada akun tersimpan). Anda dapat masuk menggunakan Akun Kesiswaan Darurat untuk membuat akun baru atau memuat akun standar ke database.
+                        </p>
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIdentifierInput('kesiswaan');
+                              setPasswordInput('admin123');
+                              passwordInputRef.current?.focus();
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-[11px] transition-colors"
+                          >
+                            Isi Akun Kesiswaan (admin123)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              INITIAL_ACCOUNTS.forEach((a) => saveAccountCloud(a).catch(console.warn));
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-[11px] transition-colors"
+                          >
+                            Muat Akun Standar ke Database
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <span>Tidak ada akun yang cocok dengan pencarian / filter ini.</span>
+                    )}
                   </div>
                 ) : (
                   filteredAccounts.map((acc) => {

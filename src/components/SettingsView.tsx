@@ -78,7 +78,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onToast('Menghubungi basis data cloud & memeriksa sinkronisasi realtime...');
     try {
       await testConnection();
-      await seedInitialDataIfEmpty();
       onToast('✓ Basis data Cloud terhubung stabil! Sinkronisasi realtime aktif.');
     } catch (e) {
       onToast('Peringatan: Periksa koneksi internet atau sesi cloud.');

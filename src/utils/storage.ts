@@ -104,14 +104,11 @@ export const saveStoredSession = (session: UserSession | null): void => {
 export const getStoredRecords = (): LateRecord[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.RECORDS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.RECORDS, JSON.stringify(INITIAL_LATE_RECORDS));
-      return INITIAL_LATE_RECORDS;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load records from storage', e);
-    return INITIAL_LATE_RECORDS;
+    return [];
   }
 };
 
@@ -126,14 +123,11 @@ export const saveStoredRecords = (records: LateRecord[]): void => {
 export const getStoredStudents = (): Student[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(INITIAL_STUDENTS));
-      return INITIAL_STUDENTS;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load students from storage', e);
-    return INITIAL_STUDENTS;
+    return [];
   }
 };
 
@@ -148,14 +142,11 @@ export const saveStoredStudents = (students: Student[]): void => {
 export const getStoredCounseling = (): CounselingEntry[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.COUNSELING);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.COUNSELING, JSON.stringify(INITIAL_COUNSELING_ENTRIES));
-      return INITIAL_COUNSELING_ENTRIES;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load counseling logs from storage', e);
-    return INITIAL_COUNSELING_ENTRIES;
+    return [];
   }
 };
 
@@ -170,14 +161,11 @@ export const saveStoredCounseling = (entries: CounselingEntry[]): void => {
 export const getStoredGuruBK = (): GuruBK[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.GURU_BK);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.GURU_BK, JSON.stringify(INITIAL_GURU_BK));
-      return INITIAL_GURU_BK;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load Guru BK from storage', e);
-    return INITIAL_GURU_BK;
+    return [];
   }
 };
 
@@ -192,14 +180,11 @@ export const saveStoredGuruBK = (items: GuruBK[]): void => {
 export const getStoredKKK = (): KKK[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.KKK);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.KKK, JSON.stringify(INITIAL_KKK));
-      return INITIAL_KKK;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load KKK from storage', e);
-    return INITIAL_KKK;
+    return [];
   }
 };
 
@@ -214,14 +199,11 @@ export const saveStoredKKK = (items: KKK[]): void => {
 export const getStoredTimKesiswaan = (): TimKesiswaan[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TIM_KESISWAAN);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(INITIAL_TIM_KESISWAAN));
-      return INITIAL_TIM_KESISWAAN;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load Tim Kesiswaan from storage', e);
-    return INITIAL_TIM_KESISWAAN;
+    return [];
   }
 };
 
@@ -236,14 +218,11 @@ export const saveStoredTimKesiswaan = (items: TimKesiswaan[]): void => {
 export const getStoredMajors = (): Major[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.MAJORS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.MAJORS, JSON.stringify(MAJORS));
-      return MAJORS;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load majors from storage', e);
-    return MAJORS;
+    return [];
   }
 };
 
@@ -258,14 +237,11 @@ export const saveStoredMajors = (items: Major[]): void => {
 export const getStoredClasses = (): SchoolClass[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CLASSES);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES));
-      return INITIAL_CLASSES;
-    }
-    return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.error('Failed to load classes from storage', e);
-    return INITIAL_CLASSES;
+    return [];
   }
 };
 
@@ -280,14 +256,11 @@ export const saveStoredClasses = (items: SchoolClass[]): void => {
 export const getStoredAccounts = (): UserAccount[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(INITIAL_ACCOUNTS));
-      return INITIAL_ACCOUNTS;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_ACCOUNTS;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return INITIAL_ACCOUNTS;
+    return [];
   }
 };
 

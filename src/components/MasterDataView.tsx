@@ -90,9 +90,9 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<MasterTab>('siswa');
 
-  const currentMajors = majors && majors.length > 0 ? majors : MAJORS;
-  const currentClasses = classes && classes.length > 0 ? classes : INITIAL_CLASSES;
-  const currentAccounts = accounts && accounts.length > 0 ? accounts : getStoredAccounts();
+  const currentMajors = majors;
+  const currentClasses = classes;
+  const currentAccounts = accounts;
 
   // Search & Filters for Siswa
   const [searchQuery, setSearchQuery] = useState('');

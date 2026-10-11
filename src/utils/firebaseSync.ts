@@ -162,9 +162,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           updateStatus({ isConnected: true, lastSync: new Date() });
           const items: LateRecord[] = [];
           snap.forEach((d) => items.push(d.data() as LateRecord));
-          if (items.length > 0 || snap.metadata.hasPendingWrites) {
-            callbacks.onRecordsChange!(items);
-          }
+          callbacks.onRecordsChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'records')
       );
@@ -179,9 +177,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           updateStatus({ isConnected: true, lastSync: new Date() });
           const items: Student[] = [];
           snap.forEach((d) => items.push(d.data() as Student));
-          if (items.length > 0) {
-            callbacks.onStudentsChange!(items);
-          }
+          callbacks.onStudentsChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'students')
       );
@@ -196,9 +192,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           updateStatus({ isConnected: true, lastSync: new Date() });
           const items: CounselingEntry[] = [];
           snap.forEach((d) => items.push(d.data() as CounselingEntry));
-          if (items.length > 0) {
-            callbacks.onCounselingChange!(items);
-          }
+          callbacks.onCounselingChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'counseling')
       );
@@ -212,7 +206,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
         (snap) => {
           const items: GuruBK[] = [];
           snap.forEach((d) => items.push(d.data() as GuruBK));
-          if (items.length > 0) callbacks.onGuruBKChange!(items);
+          callbacks.onGuruBKChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'guruBK')
       );
@@ -226,7 +220,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
         (snap) => {
           const items: KKK[] = [];
           snap.forEach((d) => items.push(d.data() as KKK));
-          if (items.length > 0) callbacks.onKKKChange!(items);
+          callbacks.onKKKChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'kkk')
       );
@@ -240,7 +234,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
         (snap) => {
           const items: TimKesiswaan[] = [];
           snap.forEach((d) => items.push(d.data() as TimKesiswaan));
-          if (items.length > 0) callbacks.onTimKesiswaanChange!(items);
+          callbacks.onTimKesiswaanChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'timKesiswaan')
       );
@@ -254,7 +248,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
         (snap) => {
           const items: Major[] = [];
           snap.forEach((d) => items.push(d.data() as Major));
-          if (items.length > 0) callbacks.onMajorsChange!(items);
+          callbacks.onMajorsChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'majors')
       );
@@ -268,7 +262,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
         (snap) => {
           const items: SchoolClass[] = [];
           snap.forEach((d) => items.push(d.data() as SchoolClass));
-          if (items.length > 0) callbacks.onClassesChange!(items);
+          callbacks.onClassesChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'classes')
       );
@@ -282,7 +276,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
         (snap) => {
           const items: UserAccount[] = [];
           snap.forEach((d) => items.push(d.data() as UserAccount));
-          if (items.length > 0) callbacks.onAccountsChange!(items);
+          callbacks.onAccountsChange!(items);
         },
         (error) => handleFirestoreError(error, OperationType.LIST, 'accounts')
       );
@@ -498,6 +492,53 @@ export async function saveMasterMajorCloud(item: Major): Promise<void> {
     await setDoc(doc(db, 'majors', item.id), item, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteMasterMajorCloud(id: string): Promise<void> {
+  const path = `majors/${id}`;
+  try {
+    await deleteDoc(doc(db, 'majors', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function resetViolationsCloud(): Promise<void> {
+  try {
+    updateStatus({ isSyncing: true });
+    const recordsSnap = await getDocs(collection(db, 'records'));
+    const counselingSnap = await getDocs(collection(db, 'counseling'));
+    const batch = writeBatch(db);
+    recordsSnap.forEach((d) => batch.delete(d.ref));
+    counselingSnap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.DELETE, 'records/counseling');
+  }
+}
+
+export async function wipeAllCloudData(): Promise<void> {
+  try {
+    updateStatus({ isSyncing: true });
+    const [recSnap, cslSnap, stdSnap, clsSnap] = await Promise.all([
+      getDocs(collection(db, 'records')),
+      getDocs(collection(db, 'counseling')),
+      getDocs(collection(db, 'students')),
+      getDocs(collection(db, 'classes')),
+    ]);
+    const batch = writeBatch(db);
+    recSnap.forEach((d) => batch.delete(d.ref));
+    cslSnap.forEach((d) => batch.delete(d.ref));
+    stdSnap.forEach((d) => batch.delete(d.ref));
+    clsSnap.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    updateStatus({ isSyncing: false, lastSync: new Date() });
+  } catch (error) {
+    updateStatus({ isSyncing: false });
+    handleFirestoreError(error, OperationType.DELETE, 'operational-data');
   }
 }
 
