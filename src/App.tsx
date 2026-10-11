@@ -51,6 +51,22 @@ import {
   exportSystemBackup,
   restoreSystemBackup
 } from './utils/storage';
+import { 
+  seedInitialDataIfEmpty,
+  startRealtimeSync,
+  saveRecordCloud,
+  deleteRecordCloud,
+  saveStudentsBatchCloud,
+  saveCounselingCloud,
+  saveAccountCloud,
+  saveMasterGuruBKCloud,
+  saveMasterKKKCloud,
+  saveMasterTimKesiswaanCloud,
+  saveMasterMajorCloud,
+  saveMasterClassCloud,
+  saveSettingsCloud
+} from './utils/firebaseSync';
+import { testConnection } from './lib/firebase';
 import { AppSettings, DEFAULT_SETTINGS } from './types/patrol';
 import { LoginPage } from './components/LoginPage';
 import { Header } from './components/Header';
@@ -120,6 +136,61 @@ export default function App() {
       setUserSession(null);
       setActiveRole(getStoredRole());
     }
+
+    // Test cloud database connection and seed initial data if collections are empty
+    testConnection().then(() => {
+      seedInitialDataIfEmpty().catch((err) => {
+        console.warn('Initial cloud seed notice:', err);
+      });
+    });
+
+    // Start Realtime synchronization with Cloud Firestore
+    const stopSync = startRealtimeSync({
+      onRecordsChange: (cloudRecords) => {
+        setRecords(cloudRecords);
+        saveStoredRecords(cloudRecords);
+      },
+      onStudentsChange: (cloudStudents) => {
+        setStudents(cloudStudents);
+        saveStoredStudents(cloudStudents);
+      },
+      onCounselingChange: (cloudCounseling) => {
+        setCounselingEntries(cloudCounseling);
+        saveStoredCounseling(cloudCounseling);
+      },
+      onGuruBKChange: (cloudGuru) => {
+        setGuruBK(cloudGuru);
+        saveStoredGuruBK(cloudGuru);
+      },
+      onKKKChange: (cloudKKK) => {
+        setKKKList(cloudKKK);
+        saveStoredKKK(cloudKKK);
+      },
+      onTimKesiswaanChange: (cloudTim) => {
+        setTimKesiswaan(cloudTim);
+        saveStoredTimKesiswaan(cloudTim);
+      },
+      onMajorsChange: (cloudMajors) => {
+        setMajors(cloudMajors);
+        saveStoredMajors(cloudMajors);
+      },
+      onClassesChange: (cloudClasses) => {
+        setSchoolClasses(cloudClasses);
+        saveStoredClasses(cloudClasses);
+      },
+      onAccountsChange: (cloudAccounts) => {
+        setAccounts(cloudAccounts);
+        saveStoredAccounts(cloudAccounts);
+      },
+      onSettingsChange: (cloudSettings) => {
+        setSettings(cloudSettings);
+        saveStoredSettings(cloudSettings);
+      },
+    });
+
+    return () => {
+      stopSync();
+    };
   }, []);
 
   const triggerToast = (msg: string) => {
@@ -199,7 +270,10 @@ export default function App() {
     const updated = [newRecord, ...records];
     setRecords(updated);
     saveStoredRecords(updated);
-    triggerToast(`Data keterlambatan ${recordData.studentName} berhasil disimpan.`);
+    saveRecordCloud(newRecord).catch((err) => {
+      console.warn('Cloud save warning (cached locally):', err);
+    });
+    triggerToast(`Data keterlambatan ${recordData.studentName} berhasil disimpan otomatis.`);
   };
 
   // Delete record
@@ -207,6 +281,9 @@ export default function App() {
     const updated = records.filter((r) => r.id !== id);
     setRecords(updated);
     saveStoredRecords(updated);
+    deleteRecordCloud(id).catch((err) => {
+      console.warn('Cloud delete warning:', err);
+    });
     triggerToast('Catatan keterlambatan berhasil dihapus.');
   };
 
@@ -220,6 +297,10 @@ export default function App() {
     );
     setRecords(updated);
     saveStoredRecords(updated);
+    const target = updated.find((r) => r.id === id);
+    if (target) {
+      saveRecordCloud(target).catch(console.warn);
+    }
     triggerToast(`Status pembinaan diperbarui: ${status}`);
   };
 
@@ -232,7 +313,10 @@ export default function App() {
     const updated = [newEntry, ...counselingEntries];
     setCounselingEntries(updated);
     saveStoredCounseling(updated);
-    triggerToast(`Sesi konseling untuk ${entryData.studentName} berhasil dicatat.`);
+    saveCounselingCloud(newEntry).catch((err) => {
+      console.warn('Cloud counseling save warning:', err);
+    });
+    triggerToast(`Sesi konseling untuk ${entryData.studentName} berhasil dicatat realtime.`);
   };
 
   // Print Call Letter triggers
@@ -267,7 +351,8 @@ export default function App() {
       setMajors(getStoredMajors());
       setSchoolClasses(getStoredClasses());
       setAccounts(getStoredAccounts());
-      triggerToast('Data contoh SMKN 1 Jember berhasil dimuat ulang.');
+      seedInitialDataIfEmpty().catch(console.warn);
+      triggerToast('Data contoh SMKN 1 Jember berhasil dimuat ulang ke database.');
     }
   };
 
@@ -275,36 +360,43 @@ export default function App() {
   const handleUpdateStudents = (newStudents: Student[]) => {
     setStudents(newStudents);
     saveStoredStudents(newStudents);
+    saveStudentsBatchCloud(newStudents).catch(console.warn);
   };
 
   const handleUpdateMajors = (newList: Major[]) => {
     setMajors(newList);
     saveStoredMajors(newList);
+    newList.forEach((m) => saveMasterMajorCloud(m).catch(console.warn));
   };
 
   const handleUpdateClasses = (newList: SchoolClass[]) => {
     setSchoolClasses(newList);
     saveStoredClasses(newList);
+    newList.forEach((c) => saveMasterClassCloud(c).catch(console.warn));
   };
 
   const handleUpdateGuruBK = (newList: GuruBK[]) => {
     setGuruBK(newList);
     saveStoredGuruBK(newList);
+    newList.forEach((g) => saveMasterGuruBKCloud(g).catch(console.warn));
   };
 
   const handleUpdateKKK = (newList: KKK[]) => {
     setKKKList(newList);
     saveStoredKKK(newList);
+    newList.forEach((k) => saveMasterKKKCloud(k).catch(console.warn));
   };
 
   const handleUpdateTimKesiswaan = (newList: TimKesiswaan[]) => {
     setTimKesiswaan(newList);
     saveStoredTimKesiswaan(newList);
+    newList.forEach((t) => saveMasterTimKesiswaanCloud(t).catch(console.warn));
   };
 
   const handleUpdateAccounts = (newList: UserAccount[]) => {
     setAccounts(newList);
     saveStoredAccounts(newList);
+    newList.forEach((a) => saveAccountCloud(a).catch(console.warn));
   };
 
   // Reset Violations only
@@ -365,6 +457,7 @@ export default function App() {
   const handleSaveSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
     saveStoredSettings(newSettings);
+    saveSettingsCloud(newSettings).catch(console.warn);
   };
 
   // If user is not logged in, show the official Login Page

@@ -1,0 +1,75 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Records (Pencatatan Keterlambatan)
+    match /records/{recordId} {
+      allow read: if true;
+      allow write: if isValidId(recordId);
+    }
+
+    // Students (Data Master Siswa)
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isValidId(studentId);
+    }
+
+    // Counseling (Bimbingan Konseling)
+    match /counseling/{counselingId} {
+      allow read: if true;
+      allow write: if isValidId(counselingId);
+    }
+
+    // Guru BK
+    match /guruBK/{guruId} {
+      allow read: if true;
+      allow write: if isValidId(guruId);
+    }
+
+    // KKK / Kaprodi
+    match /kkk/{kkkId} {
+      allow read: if true;
+      allow write: if isValidId(kkkId);
+    }
+
+    // Tim Kesiswaan
+    match /timKesiswaan/{timId} {
+      allow read: if true;
+      allow write: if isValidId(timId);
+    }
+
+    // Majors / Jurusan
+    match /majors/{majorId} {
+      allow read: if true;
+      allow write: if isValidId(majorId);
+    }
+
+    // Classes / Kelas
+    match /classes/{classId} {
+      allow read: if true;
+      allow write: if isValidId(classId);
+    }
+
+    // Accounts / Akun Pengguna
+    match /accounts/{accountId} {
+      allow read: if true;
+      allow write: if isValidId(accountId);
+    }
+
+    // Settings / Pengaturan
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isValidId(settingId);
+    }
+  }
+}

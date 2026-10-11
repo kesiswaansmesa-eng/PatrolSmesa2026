@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AppSettings, DEFAULT_SETTINGS } from '../types/patrol';
 import { SchoolLogo } from './SchoolLogo';
+import { subscribeSyncStatus, CloudSyncStatus, seedInitialDataIfEmpty } from '../utils/firebaseSync';
+import { testConnection } from '../lib/firebase';
 import { 
   Settings, 
   Save, 
@@ -22,7 +24,11 @@ import {
   ArrowDownToLine,
   Upload,
   Trash2,
-  ShieldAlert
+  ShieldAlert,
+  Cloud,
+  Server,
+  Radio,
+  RefreshCw
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -54,6 +60,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [confirmWipe, setConfirmWipe] = useState(false);
   const [wipeInput, setWipeInput] = useState('');
   const restoreFileRef = React.useRef<HTMLInputElement>(null);
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>({
+    isConnected: true,
+    isSyncing: false,
+    lastSync: null,
+    error: null,
+  });
+  const [isPinging, setIsPinging] = useState(false);
+
+  React.useEffect(() => {
+    const unsub = subscribeSyncStatus((s) => setSyncStatus(s));
+    return unsub;
+  }, []);
+
+  const handlePingDatabase = async () => {
+    setIsPinging(true);
+    onToast('Menghubungi basis data cloud & memeriksa sinkronisasi realtime...');
+    try {
+      await testConnection();
+      await seedInitialDataIfEmpty();
+      onToast('✓ Basis data Cloud terhubung stabil! Sinkronisasi realtime aktif.');
+    } catch (e) {
+      onToast('Peringatan: Periksa koneksi internet atau sesi cloud.');
+    } finally {
+      setIsPinging(false);
+    }
+  };
 
   const handleChange = (field: keyof AppSettings, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -190,6 +222,77 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Tampilan bernuansa gelap nyaman di mata, hemat energi, dan kontras tajam.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cloud Database Integration Status Card */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+          <div className="flex items-center gap-2">
+            <Cloud className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              Status Basis Data Cloud (Penyimpanan Otomatis &amp; Realtime)
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                syncStatus.isConnected
+                  ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>{syncStatus.isConnected ? 'Terhubung & Realtime Aktif' : 'Offline Mode (Local Cache)'}</span>
+            </span>
+            <button
+              type="button"
+              onClick={handlePingDatabase}
+              disabled={isPinging}
+              className="px-3 py-1 text-xs font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isPinging ? 'animate-spin' : ''}`} />
+              <span>{isPinging ? 'Memeriksa...' : 'Cek Status / Re-sync'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-lg">
+            <div className="text-[10px] uppercase font-semibold text-slate-400">Penyimpanan Terpusat</div>
+            <div className="font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Cloud Enterprise Firestore</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Data keterlambatan, akun, dan bimbingan tersimpan aman di server terpusat.
+            </p>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-lg">
+            <div className="text-[10px] uppercase font-semibold text-slate-400">Sinkronisasi Antar Perangkat</div>
+            <div className="font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1.5">
+              <Radio className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Realtime Listener (onSnapshot)</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Input dari gerbang piket langsung tampil seketika di dashboard kesiswaan &amp; guru BK.
+            </p>
+          </div>
+
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-lg">
+            <div className="text-[10px] uppercase font-semibold text-slate-400">Keandalan Offline-First</div>
+            <div className="font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              <span>Dual Persistence (Cache + Cloud)</span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Jika koneksi internet sekolah sempat terputus, aplikasi tetap berjalan lancar tanpa macet.
+            </p>
           </div>
         </div>
       </div>

@@ -1,0 +1,236 @@
+{
+  "entities": {
+    "lateRecord": {
+      "title": "LateRecord",
+      "description": "Pencatatan pelanggaran keterlambatan siswa di gerbang sekolah",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "studentNisn": { "type": "string", "maxLength": 32 },
+        "studentName": { "type": "string", "maxLength": 200 },
+        "className": { "type": "string", "maxLength": 64 },
+        "majorId": { "type": "string", "maxLength": 32 },
+        "majorName": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string", "maxLength": 32 },
+        "time": { "type": "string", "maxLength": 16 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "reasonCategory": { "type": "string", "maxLength": 64 },
+        "reasonDetail": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["Diproses", "Selesai", "Perlu_Pembinaan"], "maxLength": 32 },
+        "points": { "type": "number" },
+        "handledBy": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "photoUrl": { "type": "string", "maxLength": 2048 },
+        "followUpStatus": { "type": "string", "maxLength": 64 },
+        "suratPanggilanGenerated": { "type": "boolean" },
+        "counselingSessionId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "studentId", "studentName", "className", "date", "time", "points"]
+    },
+    "student": {
+      "title": "Student",
+      "description": "Data induk siswa SMK Negeri 1 Jember",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nisn": { "type": "string", "maxLength": 32 },
+        "name": { "type": "string", "maxLength": 200 },
+        "className": { "type": "string", "maxLength": 64 },
+        "grade": { "type": "string", "enum": ["X", "XI", "XII"], "maxLength": 8 },
+        "majorId": { "type": "string", "maxLength": 32 },
+        "majorName": { "type": "string", "maxLength": 128 },
+        "gender": { "type": "string", "enum": ["L", "P"], "maxLength": 4 },
+        "parentName": { "type": "string", "maxLength": 200 },
+        "parentPhone": { "type": "string", "maxLength": 32 },
+        "address": { "type": "string", "maxLength": 500 },
+        "totalLateCount": { "type": "number" },
+        "totalPoints": { "type": "number" },
+        "lastLateDate": { "type": "string", "maxLength": 32 },
+        "counselingStatus": { "type": "string", "maxLength": 64 },
+        "photoUrl": { "type": "string", "maxLength": 2048 }
+      },
+      "required": ["id", "nisn", "name", "className", "grade", "majorId"]
+    },
+    "counselingEntry": {
+      "title": "CounselingEntry",
+      "description": "Catatan bimbingan konseling dan tindak lanjut siswa",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "studentId": { "type": "string", "maxLength": 128 },
+        "studentName": { "type": "string", "maxLength": 200 },
+        "className": { "type": "string", "maxLength": 64 },
+        "date": { "type": "string", "maxLength": 32 },
+        "time": { "type": "string", "maxLength": 16 },
+        "counselorName": { "type": "string", "maxLength": 200 },
+        "counselorRole": { "type": "string", "maxLength": 64 },
+        "pointsAtSession": { "type": "number" },
+        "issueSummary": { "type": "string", "maxLength": 1000 },
+        "studentCommitment": { "type": "string", "maxLength": 1000 },
+        "sanctionGiven": { "type": "string", "maxLength": 500 },
+        "parentInvited": { "type": "boolean" },
+        "parentPresent": { "type": "boolean" },
+        "parentNotes": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "maxLength": 64 },
+        "spLevel": { "type": "string", "maxLength": 16 }
+      },
+      "required": ["id", "studentId", "studentName", "className", "date", "counselorName"]
+    },
+    "guruBK": {
+      "title": "GuruBK",
+      "description": "Data master Guru Bimbingan Konseling SMKN 1 Jember",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nip": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 128 },
+        "officeRoom": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name"]
+    },
+    "kkk": {
+      "title": "KKK",
+      "description": "Data Ketua Kompetensi Keahlian (Kaprodi)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nip": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 200 },
+        "majorId": { "type": "string", "maxLength": 32 },
+        "majorName": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name", "majorId"]
+    },
+    "timKesiswaan": {
+      "title": "TimKesiswaan",
+      "description": "Data Tim Kesiswaan SMKN 1 Jember",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nip": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 200 },
+        "position": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["id", "name", "position"]
+    },
+    "major": {
+      "title": "Major",
+      "description": "Data Kompetensi Keahlian / Jurusan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 32 },
+        "name": { "type": "string", "maxLength": 200 },
+        "code": { "type": "string", "maxLength": 32 },
+        "kaprodi": { "type": "string", "maxLength": 200 },
+        "color": { "type": "string", "maxLength": 32 },
+        "description": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "name", "code"]
+    },
+    "schoolClass": {
+      "title": "SchoolClass",
+      "description": "Data Kelas SMKN 1 Jember",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 64 },
+        "grade": { "type": "string", "maxLength": 8 },
+        "majorId": { "type": "string", "maxLength": 32 },
+        "waliKelas": { "type": "string", "maxLength": 200 },
+        "room": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "name", "grade", "majorId"]
+    },
+    "userAccount": {
+      "title": "UserAccount",
+      "description": "Akun login pengguna internal aplikasi PATROL",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 64 },
+        "password": { "type": "string", "maxLength": 200 },
+        "name": { "type": "string", "maxLength": 200 },
+        "nip": { "type": "string", "maxLength": 64 },
+        "role": { "type": "string", "maxLength": 32 },
+        "roleTitle": { "type": "string", "maxLength": 128 },
+        "majorId": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "notes": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "username", "role", "name"]
+    },
+    "appSettings": {
+      "title": "AppSettings",
+      "description": "Konfigurasi instansi dan sistem sekolah",
+      "type": "object",
+      "properties": {
+        "schoolName": { "type": "string", "maxLength": 200 },
+        "schoolAddress": { "type": "string", "maxLength": 300 },
+        "schoolPhone": { "type": "string", "maxLength": 64 },
+        "schoolEmail": { "type": "string", "maxLength": 128 },
+        "appName": { "type": "string", "maxLength": 128 },
+        "tagline": { "type": "string", "maxLength": 200 },
+        "logoUrl": { "type": "string", "maxLength": 2048 },
+        "kopSurat": { "type": "object" },
+        "pointThresholds": { "type": "object" },
+        "whatsappTemplate": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["schoolName", "schoolAddress", "appName"]
+    }
+  },
+  "firestore": {
+    "/records/{recordId}": {
+      "schema": { "$ref": "#/entities/lateRecord" },
+      "description": "Pencatatan keterlambatan siswa harian"
+    },
+    "/students/{studentId}": {
+      "schema": { "$ref": "#/entities/student" },
+      "description": "Master data siswa terdaftar"
+    },
+    "/counseling/{counselingId}": {
+      "schema": { "$ref": "#/entities/counselingEntry" },
+      "description": "Catatan bimbingan dan tindak lanjut konseling"
+    },
+    "/guruBK/{guruId}": {
+      "schema": { "$ref": "#/entities/guruBK" },
+      "description": "Daftar guru Bimbingan Konseling"
+    },
+    "/kkk/{kkkId}": {
+      "schema": { "$ref": "#/entities/kkk" },
+      "description": "Daftar Ketua Kompetensi Keahlian (Kaprodi)"
+    },
+    "/timKesiswaan/{timId}": {
+      "schema": { "$ref": "#/entities/timKesiswaan" },
+      "description": "Daftar anggota Tim Kesiswaan & Kedisiplinan"
+    },
+    "/majors/{majorId}": {
+      "schema": { "$ref": "#/entities/major" },
+      "description": "Daftar kompetensi keahlian / jurusan SMK"
+    },
+    "/classes/{classId}": {
+      "schema": { "$ref": "#/entities/schoolClass" },
+      "description": "Daftar kelas-kelas di sekolah"
+    },
+    "/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/userAccount" },
+      "description": "Daftar akun pengguna sistem PATROL"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/appSettings" },
+      "description": "Pengaturan institusi sekolah dan preferensi aplikasi"
+    }
+  }
+}

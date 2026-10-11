@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SchoolLogo } from './SchoolLogo';
 import { AppRole, UserSession, AppSettings } from '../types/patrol';
+import { subscribeSyncStatus, CloudSyncStatus } from '../utils/firebaseSync';
 import { 
   LayoutDashboard, 
   UserPlus, 
@@ -17,7 +18,10 @@ import {
   LogOut,
   User,
   Sun,
-  Moon
+  Moon,
+  Cloud,
+  CloudOff,
+  RefreshCw
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -58,6 +62,17 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>({
+    isConnected: true,
+    isSyncing: false,
+    lastSync: null,
+    error: null,
+  });
+
+  useEffect(() => {
+    const unsub = subscribeSyncStatus((s) => setSyncStatus(s));
+    return unsub;
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -169,6 +184,42 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Role Switcher, Theme Switcher & Action CTA */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Cloud Database Sync Status Indicator */}
+          <div
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all ${
+              syncStatus.isSyncing
+                ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                : syncStatus.isConnected
+                ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                : 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-850 text-amber-700 dark:text-amber-300'
+            }`}
+            title={
+              syncStatus.isSyncing
+                ? 'Sedang menyinkronkan data dengan database cloud...'
+                : syncStatus.isConnected
+                ? 'Database Cloud Terhubung: Penyimpanan otomatis & realtime aktif'
+                : 'Database Offline: Perubahan disimpan di perangkat'
+            }
+          >
+            {syncStatus.isSyncing ? (
+              <RefreshCw className="w-3 h-3 animate-spin text-blue-600 dark:text-blue-400" />
+            ) : syncStatus.isConnected ? (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            ) : (
+              <CloudOff className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+            )}
+            <span className="font-semibold whitespace-nowrap">
+              {syncStatus.isSyncing
+                ? 'Sinkronisasi...'
+                : syncStatus.isConnected
+                ? 'Cloud Realtime'
+                : 'Mode Offline'}
+            </span>
+          </div>
+
           {/* Global Theme Switcher Button */}
           {onToggleTheme && (
             <button

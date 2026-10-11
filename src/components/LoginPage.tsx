@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { SchoolLogo } from './SchoolLogo';
 import { AppRole, UserSession, AppSettings, UserAccount } from '../types/patrol';
 import { getStoredAccounts, saveStoredAccounts } from '../utils/storage';
+import { saveAccountCloud, subscribeSyncStatus, CloudSyncStatus } from '../utils/firebaseSync';
 import { 
   ShieldAlert, 
   GraduationCap, 
@@ -51,6 +52,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>({
+    isConnected: true,
+    isSyncing: false,
+    lastSync: null,
+    error: null,
+  });
+
+  React.useEffect(() => {
+    const unsub = subscribeSyncStatus((s) => setSyncStatus(s));
+    return unsub;
+  }, []);
 
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -181,6 +193,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       a.id === matched.id ? { ...a, lastLogin: nowIso } : a
     );
     saveStoredAccounts(updatedAccounts);
+    saveAccountCloud({ ...matched, lastLogin: nowIso }).catch((err) => {
+      console.warn('Could not sync lastLogin to cloud:', err);
+    });
 
     onLoginSuccess({
       accountId: matched.id,
@@ -239,6 +254,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </h1>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded">
                   Pencatatan &amp; Tracing Keterlambatan
+                </span>
+                <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                  syncStatus.isConnected 
+                    ? 'bg-emerald-950/70 text-emerald-300 border-emerald-800' 
+                    : 'bg-amber-950/70 text-amber-300 border-amber-800'
+                }`}>
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  <span>Cloud Database Realtime</span>
                 </span>
               </div>
               <p className="text-amber-400 text-xs sm:text-sm font-semibold tracking-wide">
