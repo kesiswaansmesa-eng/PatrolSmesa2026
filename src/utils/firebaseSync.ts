@@ -134,6 +134,61 @@ export async function seedInitialDataIfEmpty(): Promise<void> {
 }
 
 /**
+ * Otomatis sinkronisasi data lokal ke Firebase Firestore pada startup jika Firestore masih kosong,
+ * sehingga data yang telah diinput di PC 1 otomatis tersimpan ke Cloud dan langsung muncul di PC 2 / browser lain.
+ */
+export async function initAndBootstrapCloudData(localData: {
+  records?: LateRecord[];
+  students?: Student[];
+  counseling?: CounselingEntry[];
+  guruBK?: GuruBK[];
+  kkk?: KKK[];
+  timKesiswaan?: TimKesiswaan[];
+  majors?: Major[];
+  classes?: SchoolClass[];
+  accounts?: UserAccount[];
+  settings?: AppSettings;
+}): Promise<'seeded_from_local' | 'seeded_from_default' | 'cloud_already_has_data' | 'error'> {
+  try {
+    updateStatus({ isSyncing: true });
+    const [studentsSnap, recordsSnap] = await Promise.all([
+      getDocs(collection(db, 'students')),
+      getDocs(collection(db, 'records')),
+    ]);
+
+    const cloudHasData = !studentsSnap.empty || !recordsSnap.empty;
+
+    if (cloudHasData) {
+      updateStatus({ isConnected: true, isSyncing: false, lastSync: new Date() });
+      return 'cloud_already_has_data';
+    }
+
+    // Cloud Firestore masih kosong.
+    // Periksa apakah browser saat ini memiliki data lokal dari input/import sebelumnya.
+    const hasLocalOperationalData = 
+      (localData.records && localData.records.length > 0) ||
+      (localData.students && localData.students.length > 0) ||
+      (localData.counseling && localData.counseling.length > 0);
+
+    if (hasLocalOperationalData) {
+      console.log('Firebase Cloud masih kosong: Mengunggah otomatis data lokal ke Firebase Firestore...');
+      await restoreFullDatabaseToCloud(localData);
+      updateStatus({ isConnected: true, isSyncing: false, lastSync: new Date(), error: null });
+      return 'seeded_from_local';
+    } else {
+      console.log('Firebase Cloud dan data lokal kosong: Melakukan seeding template awal SMKN 1 Jember...');
+      await seedInitialDataIfEmpty();
+      updateStatus({ isConnected: true, isSyncing: false, lastSync: new Date(), error: null });
+      return 'seeded_from_default';
+    }
+  } catch (err) {
+    console.error('Error saat verifikasi inisialisasi cloud database:', err);
+    updateStatus({ isConnected: false, isSyncing: false, error: String(err) });
+    return 'error';
+  }
+}
+
+/**
  * Setup Realtime Listeners for all collections
  */
 export interface RealtimeSyncCallbacks {
@@ -153,18 +208,23 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
   // Clear any existing listeners
   stopRealtimeSync();
 
+  const handleListenerError = (collName: string, err: any) => {
+    console.warn(`Firestore onSnapshot error on [${collName}]:`, err);
+    updateStatus({ isConnected: false, error: err?.message || String(err) });
+  };
+
   try {
     // 1. Records
     if (callbacks.onRecordsChange) {
       const unsub = onSnapshot(
         collection(db, 'records'),
         (snap) => {
-          updateStatus({ isConnected: true, lastSync: new Date() });
+          updateStatus({ isConnected: true, lastSync: new Date(), error: null });
           const items: LateRecord[] = [];
           snap.forEach((d) => items.push(d.data() as LateRecord));
           callbacks.onRecordsChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'records')
+        (error) => handleListenerError('records', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -174,12 +234,12 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
       const unsub = onSnapshot(
         collection(db, 'students'),
         (snap) => {
-          updateStatus({ isConnected: true, lastSync: new Date() });
+          updateStatus({ isConnected: true, lastSync: new Date(), error: null });
           const items: Student[] = [];
           snap.forEach((d) => items.push(d.data() as Student));
           callbacks.onStudentsChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'students')
+        (error) => handleListenerError('students', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -189,12 +249,12 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
       const unsub = onSnapshot(
         collection(db, 'counseling'),
         (snap) => {
-          updateStatus({ isConnected: true, lastSync: new Date() });
+          updateStatus({ isConnected: true, lastSync: new Date(), error: null });
           const items: CounselingEntry[] = [];
           snap.forEach((d) => items.push(d.data() as CounselingEntry));
           callbacks.onCounselingChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'counseling')
+        (error) => handleListenerError('counseling', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -208,7 +268,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           snap.forEach((d) => items.push(d.data() as GuruBK));
           callbacks.onGuruBKChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'guruBK')
+        (error) => handleListenerError('guruBK', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -222,7 +282,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           snap.forEach((d) => items.push(d.data() as KKK));
           callbacks.onKKKChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'kkk')
+        (error) => handleListenerError('kkk', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -236,7 +296,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           snap.forEach((d) => items.push(d.data() as TimKesiswaan));
           callbacks.onTimKesiswaanChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'timKesiswaan')
+        (error) => handleListenerError('timKesiswaan', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -250,7 +310,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           snap.forEach((d) => items.push(d.data() as Major));
           callbacks.onMajorsChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'majors')
+        (error) => handleListenerError('majors', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -264,7 +324,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           snap.forEach((d) => items.push(d.data() as SchoolClass));
           callbacks.onClassesChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'classes')
+        (error) => handleListenerError('classes', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -278,7 +338,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
           snap.forEach((d) => items.push(d.data() as UserAccount));
           callbacks.onAccountsChange!(items);
         },
-        (error) => handleFirestoreError(error, OperationType.LIST, 'accounts')
+        (error) => handleListenerError('accounts', error)
       );
       activeUnsubscribes.push(unsub);
     }
@@ -292,7 +352,7 @@ export function startRealtimeSync(callbacks: RealtimeSyncCallbacks): () => void 
             callbacks.onSettingsChange!(snap.data() as AppSettings);
           }
         },
-        (error) => handleFirestoreError(error, OperationType.GET, 'settings/school_settings')
+        (error) => handleListenerError('settings', error)
       );
       activeUnsubscribes.push(unsub);
     }

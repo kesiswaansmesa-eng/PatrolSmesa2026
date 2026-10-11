@@ -41,6 +41,7 @@ interface HeaderProps {
   availableClasses?: string[];
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
+  onSyncAllToCloud?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -60,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   availableClasses = [],
   theme = 'light',
   onToggleTheme,
+  onSyncAllToCloud,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -186,21 +188,22 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 3: Role Switcher, Theme Switcher & Action CTA */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Cloud Database Sync Status Indicator */}
-          <div
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all ${
+          {/* Cloud Database Sync Status Indicator (Clickable to force sync) */}
+          <button
+            type="button"
+            onClick={onSyncAllToCloud}
+            disabled={syncStatus.isSyncing}
+            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all cursor-pointer hover:shadow-xs active:scale-95 disabled:opacity-75 ${
               syncStatus.isSyncing
                 ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
                 : syncStatus.isConnected
-                ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                : 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-850 text-amber-700 dark:text-amber-300'
+                ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+                : 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-850 text-amber-700 dark:text-amber-300 hover:bg-amber-100'
             }`}
             title={
               syncStatus.isSyncing
-                ? 'Sedang menyinkronkan data dengan database cloud...'
-                : syncStatus.isConnected
-                ? 'Database Cloud Terhubung: Penyimpanan otomatis & realtime aktif'
-                : 'Database Offline: Perubahan disimpan di perangkat'
+                ? 'Sedang menyinkronkan data dengan database cloud Firebase...'
+                : 'Klik untuk sinkronisasi paksa semua data lokal ke database Firebase Cloud agar sama di semua PC'
             }
           >
             {syncStatus.isSyncing ? (
@@ -218,9 +221,9 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'Sinkronisasi...'
                 : syncStatus.isConnected
                 ? 'Cloud Realtime'
-                : 'Mode Offline'}
+                : 'Mode Offline (Klik Sync)'}
             </span>
-          </div>
+          </button>
 
           {/* Global Theme Switcher Button */}
           {onToggleTheme && (

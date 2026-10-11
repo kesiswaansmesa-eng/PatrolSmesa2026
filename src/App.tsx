@@ -53,6 +53,7 @@ import {
 } from './utils/storage';
 import { 
   seedInitialDataIfEmpty,
+  initAndBootstrapCloudData,
   startRealtimeSync,
   saveRecordCloud,
   saveRecordsBatchCloud,
@@ -155,8 +156,23 @@ export default function App() {
       setActiveRole(getStoredRole());
     }
 
-    // Test cloud database connection
-    testConnection().catch((err) => {
+    // Test cloud database connection & bootstrap cloud if empty
+    initAndBootstrapCloudData({
+      records: getStoredRecords(),
+      students: getStoredStudents(),
+      counseling: getStoredCounseling(),
+      guruBK: getStoredGuruBK(),
+      kkk: getStoredKKK(),
+      timKesiswaan: getStoredTimKesiswaan(),
+      majors: getStoredMajors(),
+      classes: getStoredClasses(),
+      accounts: getStoredAccounts(),
+      settings: getStoredSettings(),
+    }).then((res) => {
+      if (res === 'seeded_from_local') {
+        triggerToast('Data dari browser ini otomatis diunggah & tersimpan permanen di Firebase!');
+      }
+    }).catch((err) => {
       console.warn('Initial cloud connection notice:', err);
     });
 
@@ -620,6 +636,7 @@ export default function App() {
         availableClasses={availableClasses}
         theme={theme}
         onToggleTheme={handleToggleTheme}
+        onSyncAllToCloud={handleSyncAllToCloud}
       />
 
       {/* Main Content Area */}
