@@ -37,7 +37,7 @@ export const LaporanView: React.FC<LaporanViewProps> = ({ records, students, set
   const printContainerRef = useRef<HTMLDivElement>(null);
 
   const schoolName = settings?.schoolName || 'SEKOLAH MENENGAH KEJURUAN NEGERI 1 JEMBER';
-  const schoolAddress = settings?.schoolAddress || 'Jl. Danau Toba No. 16 Jember, Jawa Timur 68121';
+  const schoolAddress = settings?.schoolAddress || 'Jl. Jambu No.17 Patrang - Jember';
   const schoolPhone = settings?.schoolPhone || '(0331) 337486';
   const schoolEmail = settings?.schoolEmail || 'kesiswaansmesa@gmail.com';
   const schoolWebsite = settings?.schoolWebsite || 'smkn1jember.sch.id';

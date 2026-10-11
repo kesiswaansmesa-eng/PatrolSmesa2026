@@ -34,7 +34,7 @@ export const PrintSuratModal: React.FC<PrintSuratModalProps> = ({
   if (!isOpen || !student) return null;
 
   const schoolName = settings?.schoolName || 'SEKOLAH MENENGAH KEJURUAN NEGERI 1 JEMBER';
-  const schoolAddress = settings?.schoolAddress || 'Jl. Danau Toba No. 16 Jember, Jawa Timur 68121';
+  const schoolAddress = settings?.schoolAddress || 'Jl. Jambu No.17 Patrang - Jember';
   const schoolPhone = settings?.schoolPhone || '(0331) 337486';
   const schoolEmail = settings?.schoolEmail || 'kesiswaansmesa@gmail.com';
   const schoolWebsite = settings?.schoolWebsite || 'smkn1jember.sch.id';
@@ -156,7 +156,7 @@ export const PrintSuratModal: React.FC<PrintSuratModalProps> = ({
                 SEKOLAH MENENGAH KEJURUAN NEGERI 1 JEMBER
               </h2>
               <p className="text-[11px] text-slate-700 leading-tight mt-0.5">
-                Jl. Danau Toba No. 16 Jember, Jawa Timur 68121 • Telepon: (0331) 337486
+                Jl. Jambu No.17 Patrang - Jember • Telepon: (0331) 337486
               </p>
               <p className="text-[10px] text-slate-600 font-mono">
                 Website: smkn1jember.sch.id • Email: kesiswaansmesa@gmail.com

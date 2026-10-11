@@ -14,7 +14,8 @@ import {
   KKK,
   TimKesiswaan,
   Major,
-  SchoolClass
+  SchoolClass,
+  UserAccount
 } from './types/patrol';
 import { 
   getStoredRecords, 
@@ -43,6 +44,8 @@ import {
   saveStoredMajors,
   getStoredClasses,
   saveStoredClasses,
+  getStoredAccounts,
+  saveStoredAccounts,
   resetViolationsOnly,
   wipeAllSystemData,
   exportSystemBackup,
@@ -74,6 +77,7 @@ export default function App() {
   const [timKesiswaan, setTimKesiswaan] = useState<TimKesiswaan[]>([]);
   const [majors, setMajors] = useState<Major[]>([]);
   const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>([]);
+  const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [activeRole, setActiveRole] = useState<AppRole>('kesiswaan');
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [theme, setTheme] = useState<ThemeMode>('light');
@@ -100,6 +104,7 @@ export default function App() {
     setTimKesiswaan(getStoredTimKesiswaan());
     setMajors(getStoredMajors());
     setSchoolClasses(getStoredClasses());
+    setAccounts(getStoredAccounts());
     setSettings(getStoredSettings());
 
     const initialTheme = getStoredTheme();
@@ -261,6 +266,7 @@ export default function App() {
       setTimKesiswaan(getStoredTimKesiswaan());
       setMajors(getStoredMajors());
       setSchoolClasses(getStoredClasses());
+      setAccounts(getStoredAccounts());
       triggerToast('Data contoh SMKN 1 Jember berhasil dimuat ulang.');
     }
   };
@@ -294,6 +300,11 @@ export default function App() {
   const handleUpdateTimKesiswaan = (newList: TimKesiswaan[]) => {
     setTimKesiswaan(newList);
     saveStoredTimKesiswaan(newList);
+  };
+
+  const handleUpdateAccounts = (newList: UserAccount[]) => {
+    setAccounts(newList);
+    saveStoredAccounts(newList);
   };
 
   // Reset Violations only
@@ -337,6 +348,7 @@ export default function App() {
           setTimKesiswaan(getStoredTimKesiswaan());
           setMajors(getStoredMajors());
           setSchoolClasses(getStoredClasses());
+          setAccounts(getStoredAccounts());
           setSettings(getStoredSettings());
           triggerToast('Basis data sistem berhasil dipulihkan dari file backup!');
         } else {
@@ -360,6 +372,7 @@ export default function App() {
     return (
       <LoginPage 
         onLoginSuccess={handleLoginSuccess} 
+        accounts={accounts}
         settings={settings} 
         theme={theme}
         onToggleTheme={handleToggleTheme}
@@ -471,6 +484,8 @@ export default function App() {
               onUpdateKKK={handleUpdateKKK}
               timKesiswaan={timKesiswaan}
               onUpdateTimKesiswaan={handleUpdateTimKesiswaan}
+              accounts={accounts}
+              onUpdateAccounts={handleUpdateAccounts}
               onResetViolations={handleResetViolations}
               onWipeAllData={handleWipeAllData}
               onBackupData={handleBackupData}
@@ -580,8 +595,8 @@ export default function App() {
               <span className="font-semibold text-slate-800 dark:text-slate-200">
                 {settings.appName}
               </span>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                {settings.schoolName} • “{settings.tagline}”
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                @2026 SMK Negeri 1 Jember Jl. Jambu No.17 Patrang - Jember
               </p>
             </div>
           </div>

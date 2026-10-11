@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Student, MajorId, GuruBK, KKK, TimKesiswaan, SchoolClass, Major, GradeLevel } from '../types/patrol';
-import { MAJORS, INITIAL_CLASSES } from '../data/initialData';
+import { Student, MajorId, GuruBK, KKK, TimKesiswaan, SchoolClass, Major, GradeLevel, UserAccount, AppRole } from '../types/patrol';
+import { MAJORS, INITIAL_CLASSES, INITIAL_ACCOUNTS } from '../data/initialData';
+import { getStoredAccounts } from '../utils/storage';
 import { 
   Users, 
   Upload, 
@@ -32,7 +33,14 @@ import {
   Tag,
   BookOpen,
   Palette,
-  Check
+  Check,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
+  UserCog,
+  Copy,
+  Sparkles
 } from 'lucide-react';
 
 interface MasterDataViewProps {
@@ -48,6 +56,8 @@ interface MasterDataViewProps {
   onUpdateKKK?: (list: KKK[]) => void;
   timKesiswaan?: TimKesiswaan[];
   onUpdateTimKesiswaan?: (list: TimKesiswaan[]) => void;
+  accounts?: UserAccount[];
+  onUpdateAccounts?: (list: UserAccount[]) => void;
   onResetViolations?: () => void;
   onWipeAllData?: () => void;
   onBackupData?: () => void;
@@ -55,7 +65,7 @@ interface MasterDataViewProps {
   onToast: (msg: string) => void;
 }
 
-export type MasterTab = 'siswa' | 'kelas_jurusan' | 'guru_bk' | 'kkk' | 'tim_kesiswaan';
+export type MasterTab = 'siswa' | 'kelas_jurusan' | 'guru_bk' | 'kkk' | 'tim_kesiswaan' | 'akun';
 
 export const MasterDataView: React.FC<MasterDataViewProps> = ({
   students,
@@ -70,6 +80,8 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   onUpdateKKK,
   timKesiswaan = [],
   onUpdateTimKesiswaan,
+  accounts = [],
+  onUpdateAccounts,
   onResetViolations,
   onWipeAllData,
   onBackupData,
@@ -80,6 +92,7 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
 
   const currentMajors = majors && majors.length > 0 ? majors : MAJORS;
   const currentClasses = classes && classes.length > 0 ? classes : INITIAL_CLASSES;
+  const currentAccounts = accounts && accounts.length > 0 ? accounts : getStoredAccounts();
 
   // Search & Filters for Siswa
   const [searchQuery, setSearchQuery] = useState('');
@@ -214,6 +227,40 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   const [importMajorMode, setImportMajorMode] = useState<'append' | 'replace'>('append');
   const [majorImportFileName, setMajorImportFileName] = useState<string>('');
   const [majorImportError, setMajorImportError] = useState<string | null>(null);
+
+  // Search & Filters for Accounts
+  const [accountSearch, setAccountSearch] = useState('');
+  const [accountRoleFilter, setAccountRoleFilter] = useState<'ALL' | AppRole>('ALL');
+  const [accountStatusFilter, setAccountStatusFilter] = useState<'ALL' | 'Aktif' | 'Nonaktif'>('ALL');
+
+  // Modals state for Accounts
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<UserAccount | null>(null);
+  const [accountForm, setAccountForm] = useState<Omit<UserAccount, 'id' | 'createdAt'>>({
+    username: '',
+    password: '',
+    name: '',
+    nip: '',
+    role: 'kesiswaan',
+    roleTitle: 'Tim Kesiswaan / Staf Kedisiplinan',
+    email: '',
+    phone: '628',
+    majorId: undefined,
+    className: undefined,
+    status: 'Aktif',
+    notes: '',
+  });
+
+  // Modal Reset/Ganti Password
+  const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
+  const [accountForPasswordReset, setAccountForPasswordReset] = useState<UserAccount | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Toggle see passwords in table
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [showAccountFormPassword, setShowAccountFormPassword] = useState(false);
 
   // Student Form - Custom Class Name toggle
   const [useCustomClassName, setUseCustomClassName] = useState(false);
@@ -1579,6 +1626,256 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
     setImportKesiswaanFileName('');
   };
 
+  // ========================
+  // MASTER AKUN PENGGUNA CRUD & ACTIONS
+  // ========================
+  const filteredAccounts = currentAccounts.filter((acc) => {
+    if (accountSearch.trim()) {
+      const q = accountSearch.toLowerCase();
+      const match =
+        acc.name.toLowerCase().includes(q) ||
+        acc.username.toLowerCase().includes(q) ||
+        (acc.nip && acc.nip.includes(q)) ||
+        acc.roleTitle.toLowerCase().includes(q) ||
+        (acc.email && acc.email.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    if (accountRoleFilter !== 'ALL' && acc.role !== accountRoleFilter) return false;
+    if (accountStatusFilter !== 'ALL' && acc.status !== accountStatusFilter) return false;
+    return true;
+  });
+
+  const handleTogglePasswordVisibility = (accId: string) => {
+    setVisiblePasswords((prev) => ({
+      ...prev,
+      [accId]: !prev[accId],
+    }));
+  };
+
+  const handleOpenAddAccount = () => {
+    setEditingAccount(null);
+    setShowAccountFormPassword(false);
+    setAccountForm({
+      username: '',
+      password: 'smesa' + Math.floor(100 + Math.random() * 900),
+      name: '',
+      nip: '',
+      role: 'kesiswaan',
+      roleTitle: 'Tim Kesiswaan / Staf Kedisiplinan',
+      email: '',
+      phone: '628',
+      majorId: undefined,
+      className: undefined,
+      status: 'Aktif',
+      notes: '',
+    });
+    setAccountModalOpen(true);
+  };
+
+  const handleOpenEditAccount = (acc: UserAccount) => {
+    setEditingAccount(acc);
+    setShowAccountFormPassword(false);
+    setAccountForm({
+      username: acc.username,
+      password: acc.password,
+      name: acc.name,
+      nip: acc.nip || '',
+      role: acc.role,
+      roleTitle: acc.roleTitle,
+      email: acc.email || '',
+      phone: acc.phone || '628',
+      majorId: acc.majorId,
+      className: acc.className,
+      status: acc.status,
+      notes: acc.notes || '',
+    });
+    setAccountModalOpen(true);
+  };
+
+  // Helper when admin picks existing personel to auto-link
+  const handleAutoLinkPersonel = (type: 'kesiswaan' | 'kkk' | 'bk' | 'kepsek', id: string) => {
+    if (type === 'bk') {
+      const p = guruBK.find((g) => g.id === id);
+      if (p) {
+        const cleanName = p.name.split(',')[0].trim().toLowerCase().replace(/[^a-z]/g, '');
+        setAccountForm((prev) => ({
+          ...prev,
+          role: 'bk',
+          name: p.name,
+          nip: p.nip,
+          phone: p.phone,
+          email: p.email || `${cleanName}.bk@smkn1jember.sch.id`,
+          roleTitle: p.roleTitle || 'Guru Bimbingan Konseling',
+          username: prev.username || `bk.${cleanName.slice(0, 10)}`,
+        }));
+      }
+    } else if (type === 'kkk') {
+      const p = kkkList.find((k) => k.id === id);
+      if (p) {
+        setAccountForm((prev) => ({
+          ...prev,
+          role: 'kkk',
+          name: p.name,
+          nip: p.nip,
+          phone: p.phone,
+          email: p.email || `kkk.${p.majorId.toLowerCase()}@smkn1jember.sch.id`,
+          roleTitle: `KKK ${p.majorName}`,
+          majorId: p.majorId,
+          username: prev.username || `kkk.${p.majorId.toLowerCase()}`,
+        }));
+      }
+    } else if (type === 'kesiswaan') {
+      const p = timKesiswaan.find((t) => t.id === id);
+      if (p) {
+        const cleanName = p.name.split(',')[0].trim().toLowerCase().replace(/[^a-z]/g, '');
+        setAccountForm((prev) => ({
+          ...prev,
+          role: 'kesiswaan',
+          name: p.name,
+          nip: p.nip,
+          phone: p.phone,
+          email: p.email || `${cleanName}@smkn1jember.sch.id`,
+          roleTitle: p.position || 'Tim Kesiswaan SMKN 1 Jember',
+          username: prev.username || cleanName.slice(0, 12),
+        }));
+      }
+    }
+  };
+
+  const handleSaveAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUsername = accountForm.username.trim().toLowerCase();
+    if (!cleanUsername) {
+      alert('Username wajib diisi.');
+      return;
+    }
+    if (!/^[a-z0-9._-]+$/.test(cleanUsername)) {
+      alert('Username hanya boleh memuat huruf kecil, angka, titik (.), strip (-), atau garis bawah (_).');
+      return;
+    }
+    if (!accountForm.password.trim()) {
+      alert('Password akun wajib diisi.');
+      return;
+    }
+    if (!accountForm.name.trim()) {
+      alert('Nama lengkap pengguna wajib diisi.');
+      return;
+    }
+
+    // Check unique username
+    const duplicate = currentAccounts.find(
+      (a) => a.username.toLowerCase() === cleanUsername && (!editingAccount || a.id !== editingAccount.id)
+    );
+    if (duplicate) {
+      alert(`Username "${cleanUsername}" sudah digunakan oleh akun lain (${duplicate.name}). Silakan gunakan username berbeda.`);
+      return;
+    }
+
+    let updatedAccounts: UserAccount[];
+    if (editingAccount) {
+      updatedAccounts = currentAccounts.map((a) =>
+        a.id === editingAccount.id
+          ? {
+              ...accountForm,
+              id: editingAccount.id,
+              username: cleanUsername,
+              createdAt: editingAccount.createdAt,
+              lastLogin: editingAccount.lastLogin,
+            }
+          : a
+      );
+      onToast(`Akun ${cleanUsername} (${accountForm.name}) berhasil diperbarui.`);
+    } else {
+      const newAcc: UserAccount = {
+        ...accountForm,
+        id: `usr-${Date.now()}`,
+        username: cleanUsername,
+        createdAt: new Date().toISOString(),
+      };
+      updatedAccounts = [...currentAccounts, newAcc];
+      onToast(`Akun baru ${cleanUsername} berhasil dibuat dan siap digunakan untuk login.`);
+    }
+
+    onUpdateAccounts?.(updatedAccounts);
+    setAccountModalOpen(false);
+  };
+
+  const handleToggleAccountStatus = (acc: UserAccount) => {
+    const nextStatus: 'Aktif' | 'Nonaktif' = acc.status === 'Aktif' ? 'Nonaktif' : 'Aktif';
+    if (acc.username === 'admin' && nextStatus === 'Nonaktif') {
+      alert('Akun Super Admin "admin" tidak dapat dinonaktifkan demi keamanan sistem.');
+      return;
+    }
+    const updated = currentAccounts.map((a) => (a.id === acc.id ? { ...a, status: nextStatus } : a));
+    onUpdateAccounts?.(updated);
+    onToast(`Status akun ${acc.username} diubah menjadi ${nextStatus.toUpperCase()}.`);
+  };
+
+  const handleDeleteAccount = (acc: UserAccount) => {
+    if (acc.username === 'admin') {
+      alert('Akun Super Admin "admin" tidak boleh dihapus.');
+      return;
+    }
+    if (confirm(`Hapus akun pengguna "${acc.username}" (${acc.name} - ${acc.roleTitle})? Pengguna tidak akan dapat login lagi.`)) {
+      const updated = currentAccounts.filter((a) => a.id !== acc.id);
+      onUpdateAccounts?.(updated);
+      onToast(`Akun ${acc.username} berhasil dihapus.`);
+    }
+  };
+
+  const handleOpenResetPassword = (acc: UserAccount) => {
+    setAccountForPasswordReset(acc);
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+    setShowNewPassword(false);
+    setResetPasswordModalOpen(true);
+  };
+
+  const handleSaveResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accountForPasswordReset) return;
+    const newPass = newPasswordInput.trim();
+    if (!newPass) {
+      alert('Password baru tidak boleh kosong.');
+      return;
+    }
+    if (confirmPasswordInput && newPass !== confirmPasswordInput.trim()) {
+      alert('Konfirmasi kata sandi tidak cocok. Silakan ketik ulang.');
+      return;
+    }
+
+    const updated = currentAccounts.map((a) =>
+      a.id === accountForPasswordReset.id ? { ...a, password: newPass } : a
+    );
+    onUpdateAccounts?.(updated);
+    onToast(`Password untuk akun "${accountForPasswordReset.username}" berhasil diubah menjadi: ${newPass}`);
+    setResetPasswordModalOpen(false);
+  };
+
+  const handleExportAccounts = () => {
+    const exportRows = filteredAccounts.map((a, idx) => ({
+      No: idx + 1,
+      Username: a.username,
+      Password: a.password,
+      Nama_Lengkap: a.name,
+      NIP: a.nip || '-',
+      Peran_Akses: a.role.toUpperCase(),
+      Jabatan_Penugasan: a.roleTitle,
+      Email: a.email || '-',
+      No_WhatsApp: a.phone || '-',
+      Jurusan_Terkait: a.majorId || '-',
+      Status_Akun: a.status,
+      Terakhir_Login: a.lastLogin ? new Date(a.lastLogin).toLocaleString('id-ID') : 'Belum pernah',
+      Tanggal_Dibuat: new Date(a.createdAt).toLocaleString('id-ID'),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportRows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Master_Akun_Pengguna');
+    XLSX.writeFile(wb, `Master_Data_Akun_Pengguna_PATROL_SMESA_${new Date().toISOString().split('T')[0]}.xlsx`);
+    onToast('Data master akun pengguna berhasil diekspor ke Excel.');
+  };
+
   // Restore file picker handler
   const handleRestoreFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1719,6 +2016,18 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
         >
           <ShieldCheck className="w-4 h-4" />
           <span>Master Tim Kesiswaan ({timKesiswaan.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('akun')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'akun'
+              ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 shadow-xs'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-800/50'
+          }`}
+        >
+          <KeyRound className="w-4 h-4 text-indigo-500" />
+          <span>Master Akun Pengguna ({currentAccounts.length})</span>
         </button>
       </div>
 
@@ -2710,6 +3019,298 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* TAB 5: MASTER AKUN PENGGUNA (USER MANAGEMENT)            */}
+      {/* ======================================================== */}
+      {activeTab === 'akun' && (
+        <div className="space-y-4">
+          {/* Top Quick Statistics Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Akun</span>
+              <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">
+                {currentAccounts.length}
+              </div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                {currentAccounts.filter((a) => a.status === 'Aktif').length} Aktif
+              </span>
+            </div>
+
+            <div className="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 rounded-xl p-3 shadow-xs">
+              <span className="text-[10px] uppercase font-bold text-blue-700 dark:text-blue-300 block">Kesiswaan (Admin)</span>
+              <div className="text-xl font-extrabold text-blue-900 dark:text-blue-100 mt-0.5">
+                {currentAccounts.filter((a) => a.role === 'kesiswaan').length}
+              </div>
+              <span className="text-[10px] text-blue-600 dark:text-blue-400">Hak Akses Penuh</span>
+            </div>
+
+            <div className="bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3 shadow-xs">
+              <span className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-300 block">Kepala Sekolah</span>
+              <div className="text-xl font-extrabold text-amber-900 dark:text-amber-100 mt-0.5">
+                {currentAccounts.filter((a) => a.role === 'kepsek').length}
+              </div>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400">Supervisi &amp; Eksekutif</span>
+            </div>
+
+            <div className="bg-purple-50/60 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-xl p-3 shadow-xs">
+              <span className="text-[10px] uppercase font-bold text-purple-700 dark:text-purple-300 block">Guru BK</span>
+              <div className="text-xl font-extrabold text-purple-900 dark:text-purple-100 mt-0.5">
+                {currentAccounts.filter((a) => a.role === 'bk').length}
+              </div>
+              <span className="text-[10px] text-purple-600 dark:text-purple-400">Konseling &amp; Panggilan</span>
+            </div>
+
+            <div className="bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3 shadow-xs">
+              <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-300 block">KKK (Kaprodi)</span>
+              <div className="text-xl font-extrabold text-emerald-900 dark:text-emerald-100 mt-0.5">
+                {currentAccounts.filter((a) => a.role === 'kkk').length}
+              </div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Monitoring Jurusan</span>
+            </div>
+
+            <div className="bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-xs">
+              <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block">Petugas Piket</span>
+              <div className="text-xl font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
+                {currentAccounts.filter((a) => a.role === 'piket').length}
+              </div>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">Gerbang &amp; Jam Hadir</span>
+            </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between transition-colors">
+            <div className="w-full md:w-80 relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={accountSearch}
+                onChange={(e) => setAccountSearch(e.target.value)}
+                placeholder="Cari Username, Nama, NIP, Jabatan..."
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <select
+                value={accountRoleFilter}
+                onChange={(e) => setAccountRoleFilter(e.target.value as any)}
+                className="py-2 px-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+              >
+                <option value="ALL">Semua Peran ({currentAccounts.length})</option>
+                <option value="kesiswaan">TIM Kesiswaan (Admin)</option>
+                <option value="kepsek">Kepala Sekolah</option>
+                <option value="bk">GURU BK</option>
+                <option value="kkk">KKK (Ketua Konsentrasi)</option>
+                <option value="piket">Petugas Piket Gerbang</option>
+              </select>
+
+              <select
+                value={accountStatusFilter}
+                onChange={(e) => setAccountStatusFilter(e.target.value as any)}
+                className="py-2 px-2.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+              >
+                <option value="ALL">Semua Status</option>
+                <option value="Aktif">Aktif</option>
+                <option value="Nonaktif">Nonaktif</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handleExportAccounts}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                title="Ekspor seluruh data akun dan password ke Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Ekspor Excel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenAddAccount}
+                className="px-4 py-2 text-xs font-semibold text-white bg-indigo-700 hover:bg-indigo-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Buat Akun Baru (Admin)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Accounts Table */}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                  Daftar Akun Pengguna &amp; Kredensial Akses ({filteredAccounts.length} Akun)
+                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Dibuat dan dikelola oleh Administrator Tim Kesiswaan untuk login ke aplikasi.
+                </p>
+              </div>
+              <span className="text-[11px] text-indigo-700 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800">
+                Keamanan &amp; Autentikasi Internal
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-750">
+                  <tr>
+                    <th className="py-2.5 px-3">No</th>
+                    <th className="py-2.5 px-3">Username</th>
+                    <th className="py-2.5 px-3">Nama Pegawai &amp; NIP</th>
+                    <th className="py-2.5 px-3">Peran (Hak Akses)</th>
+                    <th className="py-2.5 px-3">Jabatan / Penugasan</th>
+                    <th className="py-2.5 px-3">Password Akun</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3">Terakhir Login</th>
+                    <th className="py-2.5 px-3 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {filteredAccounts.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-400">
+                        Tidak ada akun yang sesuai dengan pencarian atau filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAccounts.map((acc, idx) => {
+                      const isPasswordVisible = visiblePasswords[acc.id] || false;
+                      const roleBadge = (() => {
+                        switch (acc.role) {
+                          case 'kesiswaan':
+                            return { label: 'TIM KESISWAAN', bg: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800' };
+                          case 'kepsek':
+                            return { label: 'KEPALA SEKOLAH', bg: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' };
+                          case 'bk':
+                            return { label: 'GURU BK', bg: 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800' };
+                          case 'kkk':
+                            return { label: 'KKK (KAPRODI)', bg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' };
+                          case 'piket':
+                            return { label: 'PIKET GERBANG', bg: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700' };
+                          default:
+                            return { label: acc.role.toUpperCase(), bg: 'bg-slate-100 text-slate-700' };
+                        }
+                      })();
+
+                      return (
+                        <tr key={acc.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3 font-mono text-slate-400 dark:text-slate-500">{idx + 1}</td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5 font-mono">
+                              <span className="font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800/60">
+                                {acc.username}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(acc.username);
+                                  onToast(`Username "${acc.username}" disalin ke clipboard.`);
+                                }}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                                title="Salin username"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <div className="font-bold text-slate-900 dark:text-white">{acc.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">NIP: {acc.nip || '-'}</div>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${roleBadge.bg}`}>
+                              {roleBadge.label}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="text-slate-800 dark:text-slate-200 font-medium">{acc.roleTitle}</div>
+                            {acc.majorId && (
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold font-mono">
+                                Jurusan: {acc.majorId}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap font-mono">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-semibold text-slate-900 dark:text-slate-100">
+                                {isPasswordVisible ? acc.password : '••••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePasswordVisibility(acc.id)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                title={isPasswordVisible ? 'Sembunyikan password' : 'Lihat password'}
+                              >
+                                {isPasswordVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleAccountStatus(acc)}
+                              className={`px-2 py-0.5 rounded font-bold text-[10px] transition-colors cursor-pointer ${
+                                acc.status === 'Aktif'
+                                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200'
+                                  : 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 hover:bg-red-200'
+                              }`}
+                              title="Klik untuk mengubah status akun"
+                            >
+                              {acc.status}
+                            </button>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            {acc.lastLogin
+                              ? new Date(acc.lastLogin).toLocaleDateString('id-ID', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Belum pernah'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenResetPassword(acc)}
+                                className="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded transition-colors cursor-pointer"
+                                title="Ganti / Reset Password"
+                              >
+                                <Lock className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditAccount(acc)}
+                                className="p-1.5 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded transition-colors cursor-pointer"
+                                title="Edit Akun"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAccount(acc)}
+                                disabled={acc.username === 'admin'}
+                                className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                title={acc.username === 'admin' ? 'Akun Super Admin tidak boleh dihapus' : 'Hapus Akun'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -4535,6 +5136,482 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                 <span>Simpan {parsedImportMajorRows.length} Jurusan ke Database</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 7: TAMBAH / EDIT AKUN PENGGUNA (ADMIN)             */}
+      {/* ======================================================== */}
+      {accountModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-sm">
+                  {editingAccount ? `Edit Akun: ${editingAccount.username}` : 'Buat Akun Pengguna Baru (Admin)'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAccount} className="p-5 space-y-3.5 text-xs text-slate-800 dark:text-slate-200 max-h-[80vh] overflow-y-auto">
+              {/* Role Selection & Quick Auto-link */}
+              <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-indigo-950 dark:text-indigo-200">
+                    Pilihan Peran / Hak Akses:
+                  </label>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400">
+                    Menentukan fitur yang dapat diakses
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                    accountForm.role === 'kesiswaan'
+                      ? 'bg-blue-600 text-white border-blue-600 font-bold'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="kesiswaan"
+                      checked={accountForm.role === 'kesiswaan'}
+                      onChange={() => setAccountForm({ ...accountForm, role: 'kesiswaan', roleTitle: 'Tim Kesiswaan / Staf Kedisiplinan' })}
+                      className="hidden"
+                    />
+                    <span>TIM Kesiswaan</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                    accountForm.role === 'kkk'
+                      ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="kkk"
+                      checked={accountForm.role === 'kkk'}
+                      onChange={() => setAccountForm({ ...accountForm, role: 'kkk', roleTitle: 'Ketua Konsentrasi Keahlian (Kaprodi)', majorId: currentMajors[0]?.id || 'RPL' })}
+                      className="hidden"
+                    />
+                    <span>KKK (Kaprodi)</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                    accountForm.role === 'bk'
+                      ? 'bg-purple-600 text-white border-purple-600 font-bold'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="bk"
+                      checked={accountForm.role === 'bk'}
+                      onChange={() => setAccountForm({ ...accountForm, role: 'bk', roleTitle: 'Guru Bimbingan Konseling (BK)' })}
+                      className="hidden"
+                    />
+                    <span>GURU BK</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                    accountForm.role === 'kepsek'
+                      ? 'bg-amber-600 text-white border-amber-600 font-bold'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="kepsek"
+                      checked={accountForm.role === 'kepsek'}
+                      onChange={() => setAccountForm({ ...accountForm, role: 'kepsek', roleTitle: 'Kepala Sekolah SMKN 1 Jember' })}
+                      className="hidden"
+                    />
+                    <span>Kepala Sekolah</span>
+                  </label>
+
+                  <label className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                    accountForm.role === 'piket'
+                      ? 'bg-slate-700 text-white border-slate-700 font-bold'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="role"
+                      value="piket"
+                      checked={accountForm.role === 'piket'}
+                      onChange={() => setAccountForm({ ...accountForm, role: 'piket', roleTitle: 'Petugas Piket Gerbang Utama' })}
+                      className="hidden"
+                    />
+                    <span>Petugas Piket</span>
+                  </label>
+                </div>
+
+                {/* Optional Quick Link from Master Data */}
+                {accountForm.role === 'bk' && guruBK.length > 0 && (
+                  <div className="pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
+                    <label className="block text-[11px] font-semibold text-indigo-900 dark:text-indigo-300 mb-1">
+                      Tautkan Otomatis dari Master Guru BK:
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) handleAutoLinkPersonel('bk', e.target.value);
+                      }}
+                      className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-xs"
+                    >
+                      <option value="">-- Pilih Guru BK untuk Mengisi Otomatis --</option>
+                      {guruBK.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} ({g.nip}) — {g.roleTitle}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {accountForm.role === 'kkk' && kkkList.length > 0 && (
+                  <div className="pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
+                    <label className="block text-[11px] font-semibold text-indigo-900 dark:text-indigo-300 mb-1">
+                      Tautkan Otomatis dari Master KKK:
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) handleAutoLinkPersonel('kkk', e.target.value);
+                      }}
+                      className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-xs"
+                    >
+                      <option value="">-- Pilih KKK untuk Mengisi Otomatis --</option>
+                      {kkkList.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.name} ({k.majorId}) — {k.majorName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {accountForm.role === 'kesiswaan' && timKesiswaan.length > 0 && (
+                  <div className="pt-2 border-t border-indigo-200/60 dark:border-indigo-900/40">
+                    <label className="block text-[11px] font-semibold text-indigo-900 dark:text-indigo-300 mb-1">
+                      Tautkan Otomatis dari Master Tim Kesiswaan:
+                    </label>
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) handleAutoLinkPersonel('kesiswaan', e.target.value);
+                      }}
+                      className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-xs"
+                    >
+                      <option value="">-- Pilih Personel Tim Kesiswaan --</option>
+                      {timKesiswaan.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} — {t.position}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Username & Password */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">
+                    Username / ID Login <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={accountForm.username}
+                    onChange={(e) => setAccountForm({ ...accountForm, username: e.target.value.toLowerCase().trim() })}
+                    placeholder="Contoh: bk.agus / kkk.rpl / admin"
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-mono bg-white dark:bg-slate-800"
+                    required
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Gunakan huruf kecil, angka, atau titik (tanpa spasi)
+                  </span>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-semibold">
+                      Password Akun <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setAccountForm({ ...accountForm, password: 'smesa' + Math.floor(100 + Math.random() * 900) })}
+                      className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Acak Sandi
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showAccountFormPassword ? 'text' : 'password'}
+                      value={accountForm.password}
+                      onChange={(e) => setAccountForm({ ...accountForm, password: e.target.value })}
+                      placeholder="Masukkan kata sandi..."
+                      className="w-full p-2 pr-9 border border-slate-300 dark:border-slate-700 rounded-lg font-mono bg-white dark:bg-slate-800"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAccountFormPassword(!showAccountFormPassword)}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showAccountFormPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Dibuat oleh admin, dapat diubah sewaktu-waktu
+                  </span>
+                </div>
+              </div>
+
+              {/* Nama Lengkap & NIP */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">
+                    Nama Lengkap &amp; Gelar <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={accountForm.name}
+                    onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
+                    placeholder="Contoh: Drs. H. Sri Handoko, M.Pd."
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">NIP Pegawai</label>
+                  <input
+                    type="text"
+                    value={accountForm.nip}
+                    onChange={(e) => setAccountForm({ ...accountForm, nip: e.target.value })}
+                    placeholder="Contoh: 19780410 200604 1 012"
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-mono bg-white dark:bg-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Jabatan & Jurusan (if KKK) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">
+                    Jabatan / Penugasan Khusus <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={accountForm.roleTitle}
+                    onChange={(e) => setAccountForm({ ...accountForm, roleTitle: e.target.value })}
+                    placeholder="Contoh: Koordinator Guru BK"
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                    required
+                  />
+                </div>
+
+                {accountForm.role === 'kkk' ? (
+                  <div>
+                    <label className="block font-semibold mb-1">Jurusan / Konsentrasi Keahlian</label>
+                    <select
+                      value={accountForm.majorId || 'RPL'}
+                      onChange={(e) => setAccountForm({ ...accountForm, majorId: e.target.value as MajorId })}
+                      className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                    >
+                      {currentMajors.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.code} - {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block font-semibold mb-1">Status Akun</label>
+                    <select
+                      value={accountForm.status}
+                      onChange={(e) => setAccountForm({ ...accountForm, status: e.target.value as 'Aktif' | 'Nonaktif' })}
+                      className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                    >
+                      <option value="Aktif">Aktif (Dapat Login)</option>
+                      <option value="Nonaktif">Nonaktif (Akses Ditolak)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Email & No WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">Email Sekolah / Kontak</label>
+                  <input
+                    type="email"
+                    value={accountForm.email}
+                    onChange={(e) => setAccountForm({ ...accountForm, email: e.target.value })}
+                    placeholder="nama@smkn1jember.sch.id"
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold mb-1">No WhatsApp</label>
+                  <input
+                    type="text"
+                    value={accountForm.phone}
+                    onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })}
+                    placeholder="628123456789"
+                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-mono bg-white dark:bg-slate-800"
+                  />
+                </div>
+              </div>
+
+              {/* Catatan / Keterangan Hak Akses */}
+              <div>
+                <label className="block font-semibold mb-1">Catatan Tambahan Hak Akses</label>
+                <input
+                  type="text"
+                  value={accountForm.notes || ''}
+                  onChange={(e) => setAccountForm({ ...accountForm, notes: e.target.value })}
+                  placeholder="Contoh: Akun pendamping siswa kelas X dan penanganan temu ortu"
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingAccount ? 'Simpan Perubahan Akun' : 'Daftarkan Akun Baru'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 8: GANTI / RESET PASSWORD AKUN                     */}
+      {/* ======================================================== */}
+      {resetPasswordModalOpen && accountForPasswordReset && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-sm">Ganti Kata Sandi Akun</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setResetPasswordModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveResetPassword} className="p-5 space-y-4 text-xs text-slate-800 dark:text-slate-200">
+              {/* Account Card Profile */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1">
+                <div className="text-[10px] text-slate-400 uppercase font-semibold">Profil Akun Terpilih:</div>
+                <div className="font-bold text-sm text-slate-900 dark:text-white">
+                  {accountForPasswordReset.name}
+                </div>
+                <div className="flex items-center gap-2 text-[11px] font-mono text-slate-600 dark:text-slate-300">
+                  <span>Username: <strong>{accountForPasswordReset.username}</strong></span>
+                  <span>•</span>
+                  <span>Peran: <strong className="uppercase text-indigo-600 dark:text-indigo-400">{accountForPasswordReset.role}</strong></span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold">
+                    Kata Sandi Baru <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const gen = 'smesa' + Math.floor(100 + Math.random() * 900);
+                      setNewPasswordInput(gen);
+                      setConfirmPasswordInput(gen);
+                    }}
+                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    Acak Sandi Otomatis
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="Masukkan kata sandi baru..."
+                    className="w-full p-2 pr-9 border border-slate-300 dark:border-slate-700 rounded-lg font-mono bg-white dark:bg-slate-800"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">
+                  Konfirmasi Kata Sandi Baru
+                </label>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  placeholder="Ulangi kata sandi baru..."
+                  className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg font-mono bg-white dark:bg-slate-800"
+                />
+              </div>
+
+              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg text-[11px] text-amber-900 dark:text-amber-300">
+                Setelah kata sandi disimpan oleh admin, pengguna dapat langsung menggunakannya pada halaman Akses Masuk login.
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span>Simpan Kata Sandi Baru</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

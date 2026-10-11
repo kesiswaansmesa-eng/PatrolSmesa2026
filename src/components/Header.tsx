@@ -191,17 +191,20 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
               className="flex items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700"
-              title="Ganti Peran Pengguna"
+              title="Informasi Akun & Peran"
             >
+              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+                {userSession?.name ? userSession.name.charAt(0) : 'U'}
+              </div>
               <div className="text-left hidden sm:block">
-                <div className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 leading-none">
-                  {roleLabels[activeRole].title}
+                <div className="text-[11px] font-bold text-slate-800 dark:text-slate-100 leading-none truncate max-w-[140px]">
+                  {userSession?.name || roleLabels[activeRole].title}
                 </div>
-                <div className="text-[9px] text-slate-500 dark:text-slate-400 leading-none mt-0.5">
-                  {roleLabels[activeRole].subtitle}
+                <div className="text-[9px] text-slate-500 dark:text-slate-400 leading-none mt-0.5 truncate max-w-[140px]">
+                  {userSession?.title || roleLabels[activeRole].subtitle}
                 </div>
               </div>
-              <span className="sm:hidden text-xs font-semibold">{roleLabels[activeRole].title.split(' ')[0]}</span>
+              <span className="sm:hidden text-xs font-semibold">{userSession?.username || roleLabels[activeRole].title.split(' ')[0]}</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             </button>
 
@@ -211,9 +214,18 @@ export const Header: React.FC<HeaderProps> = ({
                   className="fixed inset-0 z-40"
                   onClick={() => setRoleDropdownOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    Pilih Peran Tampilan:
+                <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-50 text-xs">
+                  {userSession && (
+                    <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850/50">
+                      <div className="text-[10px] uppercase font-semibold text-slate-400">Akun Masuk Saat Ini:</div>
+                      <div className="font-bold text-slate-900 dark:text-white mt-0.5">{userSession.name}</div>
+                      <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-mono">@{userSession.username}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{userSession.title}</div>
+                    </div>
+                  )}
+
+                  <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Beralih Peran Tampilan:
                   </div>
                   {(Object.keys(roleLabels) as AppRole[]).map((rKey) => {
                     const isCurrent = activeRole === rKey;
@@ -236,6 +248,21 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                     );
                   })}
+
+                  {onLogout && (
+                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1">
+                      <button
+                        onClick={() => {
+                          setRoleDropdownOpen(false);
+                          onLogout();
+                        }}
+                        className="w-full text-left px-3 py-2 flex items-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors font-medium text-xs"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Keluar &amp; Ganti Akun</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}

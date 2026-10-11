@@ -128,11 +128,34 @@ export interface CounselingEntry {
 
 export type AppRole = 'kesiswaan' | 'kepsek' | 'kkk' | 'bk' | 'walikelas' | 'piket';
 
+export interface UserAccount {
+  id: string;
+  username: string;
+  password: string;
+  name: string;
+  nip?: string;
+  role: AppRole;
+  roleTitle: string;
+  email?: string;
+  phone?: string;
+  majorId?: MajorId;
+  className?: string;
+  status: 'Aktif' | 'Nonaktif';
+  createdAt: string;
+  lastLogin?: string;
+  notes?: string;
+}
+
 export interface UserSession {
+  accountId?: string;
+  username: string;
   role: AppRole;
   name: string;
   title: string;
   email: string;
+  phone?: string;
+  majorId?: MajorId;
+  nip?: string;
 }
 
 export interface AppSettings {
@@ -162,7 +185,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   activeSemester: 'Ganjil',
   gateClosingTime: '07:00',
   tagline: 'Catat Cepat • Data Akurat • Pembinaan Tepat',
-  schoolAddress: 'Jl. Danau Toba No. 16, Jember, Jawa Timur 68121',
+  schoolAddress: 'Jl. Jambu No.17 Patrang - Jember',
   schoolPhone: '(0331) 337486',
   schoolEmail: 'kesiswaansmesa@gmail.com',
   schoolWebsite: 'smkn1jember.sch.id',

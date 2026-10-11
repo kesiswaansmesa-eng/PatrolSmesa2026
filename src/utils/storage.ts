@@ -1,5 +1,5 @@
-import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS, GuruBK, KKK, TimKesiswaan, Major, SchoolClass } from '../types/patrol';
-import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES, INITIAL_GURU_BK, INITIAL_KKK, INITIAL_TIM_KESISWAAN, MAJORS, INITIAL_CLASSES } from '../data/initialData';
+import { Student, LateRecord, CounselingEntry, AppRole, UserSession, AppSettings, DEFAULT_SETTINGS, GuruBK, KKK, TimKesiswaan, Major, SchoolClass, UserAccount } from '../types/patrol';
+import { INITIAL_STUDENTS, INITIAL_LATE_RECORDS, INITIAL_COUNSELING_ENTRIES, INITIAL_GURU_BK, INITIAL_KKK, INITIAL_TIM_KESISWAAN, MAJORS, INITIAL_CLASSES, INITIAL_ACCOUNTS } from '../data/initialData';
 
 const STORAGE_KEYS = {
   RECORDS: 'patrol_smesa_records_v1',
@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   TIM_KESISWAAN: 'patrol_smesa_tim_kesiswaan_v1',
   MAJORS: 'patrol_smesa_majors_v1',
   CLASSES: 'patrol_smesa_classes_v1',
+  ACCOUNTS: 'patrol_smesa_user_accounts_v1',
   ROLE: 'patrol_smesa_role_v1',
   SESSION: 'patrol_smesa_session_v1',
   SETTINGS: 'patrol_smesa_settings_v1',
@@ -276,6 +277,28 @@ export const saveStoredClasses = (items: SchoolClass[]): void => {
   }
 };
 
+export const getStoredAccounts = (): UserAccount[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(INITIAL_ACCOUNTS));
+      return INITIAL_ACCOUNTS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_ACCOUNTS;
+  } catch {
+    return INITIAL_ACCOUNTS;
+  }
+};
+
+export const saveStoredAccounts = (items: UserAccount[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to save accounts to storage', e);
+  }
+};
+
 export const getStoredRole = (): AppRole => {
   try {
     const role = localStorage.getItem(STORAGE_KEYS.ROLE);
@@ -306,6 +329,7 @@ export const resetAllData = (): void => {
     localStorage.setItem(STORAGE_KEYS.TIM_KESISWAAN, JSON.stringify(INITIAL_TIM_KESISWAAN));
     localStorage.setItem(STORAGE_KEYS.MAJORS, JSON.stringify(MAJORS));
     localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(INITIAL_CLASSES));
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(INITIAL_ACCOUNTS));
   } catch (e) {
     // ignore
   }
@@ -348,13 +372,14 @@ export interface SystemBackupPayload {
   timKesiswaan: TimKesiswaan[];
   majors?: Major[];
   classes?: SchoolClass[];
+  accounts?: UserAccount[];
   settings: AppSettings;
 }
 
 export const exportSystemBackup = (): void => {
   try {
     const backup: SystemBackupPayload = {
-      version: '1.3.0',
+      version: '1.4.0',
       exportedAt: new Date().toISOString(),
       records: getStoredRecords(),
       students: getStoredStudents(),
@@ -364,6 +389,7 @@ export const exportSystemBackup = (): void => {
       timKesiswaan: getStoredTimKesiswaan(),
       majors: getStoredMajors(),
       classes: getStoredClasses(),
+      accounts: getStoredAccounts(),
       settings: getStoredSettings(),
     };
 
@@ -407,6 +433,9 @@ export const restoreSystemBackup = (parsed: any): boolean => {
     }
     if (Array.isArray(parsed.classes)) {
       localStorage.setItem(STORAGE_KEYS.CLASSES, JSON.stringify(parsed.classes));
+    }
+    if (Array.isArray(parsed.accounts)) {
+      localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(parsed.accounts));
     }
     if (parsed.settings && typeof parsed.settings === 'object') {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed.settings));
@@ -463,7 +492,7 @@ export const generateWhatsAppLink = (
   student: Student, 
   totalViolations: number,
   schoolName: string = 'SMK NEGERI 1 JEMBER',
-  schoolAddress: string = 'Jl. Danau Toba No. 16, Jember'
+  schoolAddress: string = 'Jl. Jambu No.17 Patrang - Jember'
 ): string => {
   const phone = student.parentPhone.replace(/[^0-9]/g, '');
   const cleanPhone = phone.startsWith('0') ? '62' + phone.slice(1) : phone;
