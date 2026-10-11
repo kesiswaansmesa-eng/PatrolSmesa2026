@@ -123,11 +123,32 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
     status: 'Aktif',
   });
 
-  // Import preview state
+  // Import preview state for Siswa
   const [parsedImportRows, setParsedImportRows] = useState<Partial<Student>[]>([]);
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const [importFileName, setImportFileName] = useState<string>('');
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Import preview state for Guru BK
+  const [bkImportModalOpen, setBkImportModalOpen] = useState(false);
+  const [parsedImportBkRows, setParsedImportBkRows] = useState<Partial<GuruBK>[]>([]);
+  const [importBkMode, setImportBkMode] = useState<'append' | 'replace'>('append');
+  const [importBkFileName, setImportBkFileName] = useState<string>('');
+  const [importBkError, setImportBkError] = useState<string | null>(null);
+
+  // Import preview state for KKK
+  const [kkkImportModalOpen, setKkkImportModalOpen] = useState(false);
+  const [parsedImportKkkRows, setParsedImportKkkRows] = useState<Partial<KKK>[]>([]);
+  const [importKkkMode, setImportKkkMode] = useState<'append' | 'replace'>('append');
+  const [importKkkFileName, setImportKkkFileName] = useState<string>('');
+  const [importKkkError, setImportKkkError] = useState<string | null>(null);
+
+  // Import preview state for Tim Kesiswaan
+  const [kesiswaanImportModalOpen, setKesiswaanImportModalOpen] = useState(false);
+  const [parsedImportKesiswaanRows, setParsedImportKesiswaanRows] = useState<Partial<TimKesiswaan>[]>([]);
+  const [importKesiswaanMode, setImportKesiswaanMode] = useState<'append' | 'replace'>('append');
+  const [importKesiswaanFileName, setImportKesiswaanFileName] = useState<string>('');
+  const [importKesiswaanError, setImportKesiswaanError] = useState<string | null>(null);
 
   // Student Form
   const [formData, setFormData] = useState<Omit<Student, 'id'>>({
@@ -144,6 +165,9 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bkFileInputRef = useRef<HTMLInputElement>(null);
+  const kkkFileInputRef = useRef<HTMLInputElement>(null);
+  const kesiswaanFileInputRef = useRef<HTMLInputElement>(null);
   const backupInputRef = useRef<HTMLInputElement>(null);
 
   // ========================
@@ -464,6 +488,107 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
     onToast('Data Master Guru BK berhasil diekspor.');
   };
 
+  // Template & Import for Guru BK
+  const handleDownloadTemplateBK = () => {
+    const templateData = [
+      {
+        NIP: '198005122005011005',
+        Nama_Lengkap: 'Dra. Hj. Siti Romlah, M.Pd.',
+        Penugasan: 'Koordinator Guru BK',
+        Spesialisasi: 'Konseling Karir & Perguruan Tinggi',
+        No_WhatsApp: '6281234567111',
+        Email: 'siti.romlah@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+      {
+        NIP: '198402152008012004',
+        Nama_Lengkap: 'Ahmad Fauzi, S.Pd., Kons.',
+        Penugasan: 'Guru BK Tingkat X (Fase E)',
+        Spesialisasi: 'Kedisiplinan & Masalah Perilaku',
+        No_WhatsApp: '6281234567222',
+        Email: 'ahmad.fauzi@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_Guru_BK');
+    XLSX.writeFile(wb, 'Template_Import_Guru_BK_PATROL_SMESA.xlsx');
+    onToast('Template Excel Guru BK berhasil diunduh.');
+  };
+
+  const handleFileUploadBK = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportBkFileName(file.name);
+    setImportBkError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (rawJson.length === 0) {
+          setImportBkError('File kosong atau format tidak sesuai.');
+          return;
+        }
+
+        const parsed: Partial<GuruBK>[] = rawJson.map((row, idx) => {
+          const nip = String(row['NIP'] || row['nip'] || row['Nomor Induk'] || '').trim();
+          const name = String(row['Nama_Lengkap'] || row['Nama'] || row['nama'] || row['Nama Guru'] || '').trim();
+          const roleTitle = String(row['Penugasan'] || row['Jabatan'] || row['roleTitle'] || row['Tingkat'] || 'Guru BK').trim();
+          const specialization = String(row['Spesialisasi'] || row['Bidang'] || row['specialization'] || '').trim();
+          let phone = String(row['No_WhatsApp'] || row['No WA'] || row['Telepon'] || row['phone'] || '628').trim();
+          if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+          const email = String(row['Email'] || row['email'] || '').trim();
+          const rawStatus = String(row['Status'] || row['status'] || 'Aktif').trim();
+          const status = rawStatus.toLowerCase().includes('cuti') ? 'Cuti' : 'Aktif';
+
+          return {
+            id: `bk-imp-${Date.now()}-${idx}`,
+            nip: nip || `19800000000000${String(1000 + idx)}`,
+            name: name || `Guru BK Baru ${idx + 1}`,
+            roleTitle: roleTitle || 'Guru BK',
+            specialization,
+            phone: phone || '628123456789',
+            email,
+            status,
+          };
+        });
+
+        setParsedImportBkRows(parsed);
+      } catch (err) {
+        console.error('Error parsing excel Guru BK', err);
+        setImportBkError('Gagal membaca file Excel/CSV. Pastikan format file valid.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleCommitImportBK = () => {
+    if (parsedImportBkRows.length === 0) return;
+
+    let updated: GuruBK[] = [];
+    if (importBkMode === 'replace') {
+      updated = parsedImportBkRows as GuruBK[];
+    } else {
+      const existingNip = new Set(guruBK.map((b) => b.nip));
+      const newItems = (parsedImportBkRows as GuruBK[]).filter((b) => !existingNip.has(b.nip));
+      updated = [...guruBK, ...newItems];
+    }
+
+    onUpdateGuruBK?.(updated);
+    onToast(`Berhasil mengimpor ${parsedImportBkRows.length} data Guru BK.`);
+    setBkImportModalOpen(false);
+    setParsedImportBkRows([]);
+    setImportBkFileName('');
+  };
+
   // ========================
   // KKK CRUD & EXPORT
   // ========================
@@ -560,6 +685,123 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
     onToast('Data Master KKK berhasil diekspor.');
   };
 
+  // Template & Import for KKK
+  const handleDownloadTemplateKKK = () => {
+    const templateData = [
+      {
+        NIP: '197803122003121002',
+        Nama_Lengkap: 'Ir. Bambang Supriyadi, M.T.',
+        Kode_Jurusan: 'RPL',
+        Konsentrasi_Keahlian: 'Pengembangan Perangkat Lunak & Gim (PPLG / RPL)',
+        Ruang_Kantor_Lab: 'Ruang KKK PPLG & Bengkel Software Lt. 2',
+        No_WhatsApp: '6281234567201',
+        Email: 'bambang.pplg@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+      {
+        NIP: '198107242006042011',
+        Nama_Lengkap: 'Dra. Endang Susilowati, M.M.',
+        Kode_Jurusan: 'AKL',
+        Konsentrasi_Keahlian: 'Akuntansi & Keuangan Lembaga (AKL)',
+        Ruang_Kantor_Lab: 'Ruang KKK AKL / Bank Mini SMESA',
+        No_WhatsApp: '6281234567202',
+        Email: 'endang.akl@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_KKK');
+    XLSX.writeFile(wb, 'Template_Import_KKK_PATROL_SMESA.xlsx');
+    onToast('Template Excel KKK berhasil diunduh.');
+  };
+
+  const handleFileUploadKKK = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportKkkFileName(file.name);
+    setImportKkkError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (rawJson.length === 0) {
+          setImportKkkError('File kosong atau format tidak sesuai.');
+          return;
+        }
+
+        const parsed: Partial<KKK>[] = rawJson.map((row, idx) => {
+          const nip = String(row['NIP'] || row['nip'] || '').trim();
+          const name = String(row['Nama_Lengkap'] || row['Nama'] || row['nama'] || '').trim();
+          const rawMajor = String(row['Kode_Jurusan'] || row['Jurusan'] || row['Konsentrasi_Keahlian'] || 'RPL').toUpperCase();
+          
+          let majorId: MajorId = 'RPL';
+          if (['RPL', 'PPLG'].some((k) => rawMajor.includes(k))) majorId = 'RPL';
+          else if (['AKL', 'AKUNTANSI'].some((k) => rawMajor.includes(k))) majorId = 'AKL';
+          else if (['MPLB', 'OTKP', 'PERKANTORAN'].some((k) => rawMajor.includes(k))) majorId = 'MPLB';
+          else if (['BD', 'BDP', 'PEMASARAN', 'BISNIS'].some((k) => rawMajor.includes(k))) majorId = 'BD';
+          else if (['DKV', 'DESAIN'].some((k) => rawMajor.includes(k))) majorId = 'DKV';
+          else if (['KL', 'KULINER', 'BOGA'].some((k) => rawMajor.includes(k))) majorId = 'KL';
+          else if (['HTL', 'HOTEL', 'PERHOTELAN'].some((k) => rawMajor.includes(k))) majorId = 'HTL';
+
+          const matchedMajor = MAJORS.find((m) => m.id === majorId);
+          const majorName = String(row['Konsentrasi_Keahlian'] || matchedMajor?.name || majorId).trim();
+          const officeRoom = String(row['Ruang_Kantor_Lab'] || row['Ruang'] || row['Lab'] || '').trim();
+
+          let phone = String(row['No_WhatsApp'] || row['No WA'] || row['Telepon'] || row['phone'] || '628').trim();
+          if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+          const email = String(row['Email'] || row['email'] || '').trim();
+          const rawStatus = String(row['Status'] || row['status'] || 'Aktif').trim();
+          const status = rawStatus.toLowerCase().includes('cuti') ? 'Cuti' : 'Aktif';
+
+          return {
+            id: `kkk-imp-${Date.now()}-${idx}`,
+            nip: nip || `19780000000000${String(1000 + idx)}`,
+            name: name || `Kepala Konsentrasi Keahlian ${idx + 1}`,
+            majorId,
+            majorName,
+            officeRoom,
+            phone: phone || '628123456789',
+            email,
+            status,
+          };
+        });
+
+        setParsedImportKkkRows(parsed);
+      } catch (err) {
+        console.error('Error parsing excel KKK', err);
+        setImportKkkError('Gagal membaca file Excel/CSV. Pastikan format file valid.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleCommitImportKKK = () => {
+    if (parsedImportKkkRows.length === 0) return;
+
+    let updated: KKK[] = [];
+    if (importKkkMode === 'replace') {
+      updated = parsedImportKkkRows as KKK[];
+    } else {
+      const existingMajor = new Set(kkkList.map((k) => k.majorId));
+      const newItems = (parsedImportKkkRows as KKK[]).filter((k) => !existingMajor.has(k.majorId));
+      updated = [...kkkList, ...newItems];
+    }
+
+    onUpdateKKK?.(updated);
+    onToast(`Berhasil mengimpor ${parsedImportKkkRows.length} data Ketua Konsentrasi Keahlian (KKK).`);
+    setKkkImportModalOpen(false);
+    setParsedImportKkkRows([]);
+    setImportKkkFileName('');
+  };
+
   // ========================
   // TIM KESISWAAN CRUD & EXPORT
   // ========================
@@ -641,6 +883,112 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
     XLSX.utils.book_append_sheet(wb, ws, 'Master_Tim_Kesiswaan');
     XLSX.writeFile(wb, `Master_Tim_Kesiswaan_SMKN1_Jember_${new Date().toISOString().split('T')[0]}.xlsx`);
     onToast('Data Master Tim Kesiswaan berhasil diekspor.');
+  };
+
+  // Template & Import for Tim Kesiswaan
+  const handleDownloadTemplateKesiswaan = () => {
+    const templateData = [
+      {
+        NIP: '197509182000031003',
+        Nama_Lengkap: 'Drs. Moh. Zaini, M.Pd.',
+        Jabatan_Tugas: 'Waka Kesiswaan',
+        No_WhatsApp: '6281234567001',
+        Email: 'zaini.kesiswaan@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+      {
+        NIP: '198304122009021006',
+        Nama_Lengkap: 'Hendra Setiawan, S.Pd.',
+        Jabatan_Tugas: 'Koordinator Ketertiban, Disiplin & Piket',
+        No_WhatsApp: '6281234567002',
+        Email: 'hendra.tatib@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+      {
+        NIP: '198811052011012015',
+        Nama_Lengkap: 'Rina Kartikasari, S.Pd.',
+        Jabatan_Tugas: 'Pembina OSIS & Ekstrakurikuler',
+        No_WhatsApp: '6281234567003',
+        Email: 'rina.osis@smkn1jember.sch.id',
+        Status: 'Aktif',
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_Tim_Kesiswaan');
+    XLSX.writeFile(wb, 'Template_Import_Tim_Kesiswaan_PATROL_SMESA.xlsx');
+    onToast('Template Excel Tim Kesiswaan berhasil diunduh.');
+  };
+
+  const handleFileUploadKesiswaan = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportKesiswaanFileName(file.name);
+    setImportKesiswaanError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+        if (rawJson.length === 0) {
+          setImportKesiswaanError('File kosong atau format tidak sesuai.');
+          return;
+        }
+
+        const parsed: Partial<TimKesiswaan>[] = rawJson.map((row, idx) => {
+          const nip = String(row['NIP'] || row['nip'] || '').trim();
+          const name = String(row['Nama_Lengkap'] || row['Nama'] || row['nama'] || '').trim();
+          const position = String(row['Jabatan_Tugas'] || row['Jabatan'] || row['position'] || 'Staf Tim Kesiswaan').trim();
+
+          let phone = String(row['No_WhatsApp'] || row['No WA'] || row['Telepon'] || row['phone'] || '628').trim();
+          if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+          const email = String(row['Email'] || row['email'] || '').trim();
+          const rawStatus = String(row['Status'] || row['status'] || 'Aktif').trim();
+          const status = rawStatus.toLowerCase().includes('cuti') ? 'Cuti' : 'Aktif';
+
+          return {
+            id: `kes-imp-${Date.now()}-${idx}`,
+            nip: nip || `19850000000000${String(1000 + idx)}`,
+            name: name || `Anggota Kesiswaan ${idx + 1}`,
+            position,
+            phone: phone || '628123456789',
+            email,
+            status,
+          };
+        });
+
+        setParsedImportKesiswaanRows(parsed);
+      } catch (err) {
+        console.error('Error parsing excel Tim Kesiswaan', err);
+        setImportKesiswaanError('Gagal membaca file Excel/CSV. Pastikan format file valid.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleCommitImportKesiswaan = () => {
+    if (parsedImportKesiswaanRows.length === 0) return;
+
+    let updated: TimKesiswaan[] = [];
+    if (importKesiswaanMode === 'replace') {
+      updated = parsedImportKesiswaanRows as TimKesiswaan[];
+    } else {
+      const existingNip = new Set(timKesiswaan.map((t) => t.nip));
+      const newItems = (parsedImportKesiswaanRows as TimKesiswaan[]).filter((t) => !existingNip.has(t.nip));
+      updated = [...timKesiswaan, ...newItems];
+    }
+
+    onUpdateTimKesiswaan?.(updated);
+    onToast(`Berhasil mengimpor ${parsedImportKesiswaanRows.length} data personel Tim Kesiswaan.`);
+    setKesiswaanImportModalOpen(false);
+    setParsedImportKesiswaanRows([]);
+    setImportKesiswaanFileName('');
   };
 
   // Restore file picker handler
@@ -973,7 +1321,25 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleDownloadTemplateBK}
+                className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                title="Unduh Format Contoh Excel Master Guru BK"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>Format Excel</span>
+              </button>
+
+              <button
+                onClick={() => setBkImportModalOpen(true)}
+                className="px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                title="Import data Guru BK dari file Excel"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Excel</span>
+              </button>
+
               <button
                 onClick={handleExportGuruBK}
                 className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
@@ -1089,7 +1455,25 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleDownloadTemplateKKK}
+                className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                title="Unduh Format Contoh Excel Master KKK"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>Format Excel</span>
+              </button>
+
+              <button
+                onClick={() => setKkkImportModalOpen(true)}
+                className="px-3 py-2 text-xs font-semibold text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                title="Import data Ketua Konsentrasi Keahlian dari file Excel"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Excel</span>
+              </button>
+
               <button
                 onClick={handleExportKKK}
                 className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
@@ -1208,7 +1592,25 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleDownloadTemplateKesiswaan}
+                className="px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                title="Unduh Format Contoh Excel Master Tim Kesiswaan"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span>Format Excel</span>
+              </button>
+
+              <button
+                onClick={() => setKesiswaanImportModalOpen(true)}
+                className="px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-300 dark:border-blue-800 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+                title="Import data personel Tim Kesiswaan dari file Excel"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Excel</span>
+              </button>
+
               <button
                 onClick={handleExportTimKesiswaan}
                 className="px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
@@ -2044,6 +2446,462 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                 className="px-4 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white font-semibold rounded-lg shadow-xs"
               >
                 Hapus Semua Data Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: IMPORT GURU BK DARI EXCEL                        */}
+      {/* ======================================================== */}
+      {bkImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-emerald-800 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HeartHandshake className="w-5 h-5 text-emerald-300" />
+                <h3 className="font-bold text-sm">Import Master Guru BK dari Excel / CSV</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setBkImportModalOpen(false);
+                  setParsedImportBkRows([]);
+                  setImportBkFileName('');
+                  setImportBkError(null);
+                }}
+                className="text-emerald-200 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs text-slate-800 dark:text-slate-200">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-900 dark:text-emerald-300 flex items-start gap-2.5">
+                <HelpCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-semibold">Format File Excel Guru BK (.xlsx / .csv):</div>
+                  <p className="text-[11px] leading-relaxed">
+                    Kolom yang didukung: <strong>NIP</strong>, <strong>Nama_Lengkap</strong>, <strong>Penugasan</strong> (contoh: Koordinator Guru BK, Guru BK Tingkat X), <strong>Spesialisasi</strong>, <strong>No_WhatsApp</strong>, <strong>Email</strong>, dan <strong>Status</strong> (Aktif/Cuti).
+                  </p>
+                  <button
+                    onClick={handleDownloadTemplateBK}
+                    className="text-emerald-700 dark:text-emerald-400 underline font-semibold text-[11px]"
+                  >
+                    Klik di sini untuk mengunduh template contoh Excel Guru BK.
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors bg-slate-50 dark:bg-slate-800/40">
+                <Upload className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                <div className="font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pilih file Excel Guru BK (.xlsx, .xls) atau CSV dari komputer
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  {importBkFileName ? `File terpilih: ${importBkFileName}` : 'Klik tombol di bawah untuk memilih file'}
+                </p>
+                <input
+                  ref={bkFileInputRef}
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUploadBK}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => bkFileInputRef.current?.click()}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-semibold shadow-xs"
+                >
+                  Pilih File Excel Guru BK
+                </button>
+              </div>
+
+              {importBkError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{importBkError}</span>
+                </div>
+              )}
+
+              {parsedImportBkRows.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Preview Data ({parsedImportBkRows.length} Guru BK terbaca):
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importBkMode"
+                          checked={importBkMode === 'append'}
+                          onChange={() => setImportBkMode('append')}
+                        />
+                        <span>Tambahkan (Append)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importBkMode"
+                          checked={importBkMode === 'replace'}
+                          onChange={() => setImportBkMode('replace')}
+                        />
+                        <span className="text-red-600 font-semibold">Ganti Seluruh Data BK</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-48">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 sticky top-0">
+                        <tr>
+                          <th className="py-1.5 px-2">NIP</th>
+                          <th className="py-1.5 px-2">Nama Lengkap</th>
+                          <th className="py-1.5 px-2">Penugasan</th>
+                          <th className="py-1.5 px-2">Spesialisasi</th>
+                          <th className="py-1.5 px-2">No WA</th>
+                          <th className="py-1.5 px-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {parsedImportBkRows.slice(0, 8).map((r, i) => (
+                          <tr key={i}>
+                            <td className="py-1 px-2 font-mono">{r.nip}</td>
+                            <td className="py-1 px-2 font-medium">{r.name}</td>
+                            <td className="py-1 px-2">{r.roleTitle}</td>
+                            <td className="py-1 px-2">{r.specialization || '-'}</td>
+                            <td className="py-1 px-2 font-mono">{r.phone}</td>
+                            <td className="py-1 px-2">{r.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setBkImportModalOpen(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={parsedImportBkRows.length === 0}
+                onClick={handleCommitImportBK}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs flex items-center gap-1.5 shadow-xs"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Simpan {parsedImportBkRows.length} Guru BK ke Database</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: IMPORT KKK DARI EXCEL                             */}
+      {/* ======================================================== */}
+      {kkkImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-purple-800 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-purple-300" />
+                <h3 className="font-bold text-sm">Import Master KKK dari Excel / CSV</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setKkkImportModalOpen(false);
+                  setParsedImportKkkRows([]);
+                  setImportKkkFileName('');
+                  setImportKkkError(null);
+                }}
+                className="text-purple-200 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs text-slate-800 dark:text-slate-200">
+              <div className="p-3 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-lg text-purple-900 dark:text-purple-300 flex items-start gap-2.5">
+                <HelpCircle className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-semibold">Format File Excel KKK (.xlsx / .csv):</div>
+                  <p className="text-[11px] leading-relaxed">
+                    Kolom yang didukung: <strong>NIP</strong>, <strong>Nama_Lengkap</strong>, <strong>Kode_Jurusan</strong> (RPL/AKL/MPLB/BD/DKV/KL/HTL), <strong>Konsentrasi_Keahlian</strong>, <strong>Ruang_Kantor_Lab</strong>, <strong>No_WhatsApp</strong>, <strong>Email</strong>, dan <strong>Status</strong>.
+                  </p>
+                  <button
+                    onClick={handleDownloadTemplateKKK}
+                    className="text-purple-700 dark:text-purple-400 underline font-semibold text-[11px]"
+                  >
+                    Klik di sini untuk mengunduh template contoh Excel KKK.
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center hover:border-purple-500 transition-colors bg-slate-50 dark:bg-slate-800/40">
+                <Upload className="w-8 h-8 text-purple-500 mx-auto mb-2" />
+                <div className="font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pilih file Excel KKK (.xlsx, .xls) atau CSV dari komputer
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  {importKkkFileName ? `File terpilih: ${importKkkFileName}` : 'Klik tombol di bawah untuk memilih file'}
+                </p>
+                <input
+                  ref={kkkFileInputRef}
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUploadKKK}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => kkkFileInputRef.current?.click()}
+                  className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-semibold shadow-xs"
+                >
+                  Pilih File Excel KKK
+                </button>
+              </div>
+
+              {importKkkError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{importKkkError}</span>
+                </div>
+              )}
+
+              {parsedImportKkkRows.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Preview Data ({parsedImportKkkRows.length} KKK terbaca):
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importKkkMode"
+                          checked={importKkkMode === 'append'}
+                          onChange={() => setImportKkkMode('append')}
+                        />
+                        <span>Tambahkan (Append)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importKkkMode"
+                          checked={importKkkMode === 'replace'}
+                          onChange={() => setImportKkkMode('replace')}
+                        />
+                        <span className="text-red-600 font-semibold">Ganti Seluruh Data KKK</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-48">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 sticky top-0">
+                        <tr>
+                          <th className="py-1.5 px-2">Kode</th>
+                          <th className="py-1.5 px-2">Konsentrasi Keahlian</th>
+                          <th className="py-1.5 px-2">Nama KKK</th>
+                          <th className="py-1.5 px-2">NIP</th>
+                          <th className="py-1.5 px-2">Ruang / Lab</th>
+                          <th className="py-1.5 px-2">No WA</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {parsedImportKkkRows.slice(0, 8).map((r, i) => (
+                          <tr key={i}>
+                            <td className="py-1 px-2 font-mono font-bold text-purple-700 dark:text-purple-400">{r.majorId}</td>
+                            <td className="py-1 px-2">{r.majorName}</td>
+                            <td className="py-1 px-2 font-medium">{r.name}</td>
+                            <td className="py-1 px-2 font-mono">{r.nip}</td>
+                            <td className="py-1 px-2">{r.officeRoom || '-'}</td>
+                            <td className="py-1 px-2 font-mono">{r.phone}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setKkkImportModalOpen(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={parsedImportKkkRows.length === 0}
+                onClick={handleCommitImportKKK}
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs flex items-center gap-1.5 shadow-xs"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Simpan {parsedImportKkkRows.length} KKK ke Database</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL: IMPORT TIM KESISWAAN DARI EXCEL                   */}
+      {/* ======================================================== */}
+      {kesiswaanImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-blue-800 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-blue-300" />
+                <h3 className="font-bold text-sm">Import Master Tim Kesiswaan dari Excel / CSV</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setKesiswaanImportModalOpen(false);
+                  setParsedImportKesiswaanRows([]);
+                  setImportKesiswaanFileName('');
+                  setImportKesiswaanError(null);
+                }}
+                className="text-blue-200 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs text-slate-800 dark:text-slate-200">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg text-blue-900 dark:text-blue-300 flex items-start gap-2.5">
+                <HelpCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-semibold">Format File Excel Tim Kesiswaan (.xlsx / .csv):</div>
+                  <p className="text-[11px] leading-relaxed">
+                    Kolom yang didukung: <strong>NIP</strong>, <strong>Nama_Lengkap</strong>, <strong>Jabatan_Tugas</strong> (contoh: Waka Kesiswaan, Koordinator Ketertiban, Disiplin &amp; Piket, Pembina OSIS), <strong>No_WhatsApp</strong>, <strong>Email</strong>, dan <strong>Status</strong>.
+                  </p>
+                  <button
+                    onClick={handleDownloadTemplateKesiswaan}
+                    className="text-blue-700 dark:text-blue-400 underline font-semibold text-[11px]"
+                  >
+                    Klik di sini untuk mengunduh template contoh Excel Tim Kesiswaan.
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-6 text-center hover:border-blue-500 transition-colors bg-slate-50 dark:bg-slate-800/40">
+                <Upload className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                <div className="font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Pilih file Excel Tim Kesiswaan (.xlsx, .xls) atau CSV dari komputer
+                </div>
+                <p className="text-[11px] text-slate-400 mb-3">
+                  {importKesiswaanFileName ? `File terpilih: ${importKesiswaanFileName}` : 'Klik tombol di bawah untuk memilih file'}
+                </p>
+                <input
+                  ref={kesiswaanFileInputRef}
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleFileUploadKesiswaan}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => kesiswaanFileInputRef.current?.click()}
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-semibold shadow-xs"
+                >
+                  Pilih File Excel Tim Kesiswaan
+                </button>
+              </div>
+
+              {importKesiswaanError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{importKesiswaanError}</span>
+                </div>
+              )}
+
+              {parsedImportKesiswaanRows.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      Preview Data ({parsedImportKesiswaanRows.length} Tim Kesiswaan terbaca):
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importKesiswaanMode"
+                          checked={importKesiswaanMode === 'append'}
+                          onChange={() => setImportKesiswaanMode('append')}
+                        />
+                        <span>Tambahkan (Append)</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="importKesiswaanMode"
+                          checked={importKesiswaanMode === 'replace'}
+                          onChange={() => setImportKesiswaanMode('replace')}
+                        />
+                        <span className="text-red-600 font-semibold">Ganti Seluruh Data Tim</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-x-auto max-h-48">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 sticky top-0">
+                        <tr>
+                          <th className="py-1.5 px-2">NIP</th>
+                          <th className="py-1.5 px-2">Nama Lengkap</th>
+                          <th className="py-1.5 px-2">Jabatan / Penugasan</th>
+                          <th className="py-1.5 px-2">No WA</th>
+                          <th className="py-1.5 px-2">Email</th>
+                          <th className="py-1.5 px-2">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {parsedImportKesiswaanRows.slice(0, 8).map((r, i) => (
+                          <tr key={i}>
+                            <td className="py-1 px-2 font-mono">{r.nip}</td>
+                            <td className="py-1 px-2 font-medium">{r.name}</td>
+                            <td className="py-1 px-2">{r.position}</td>
+                            <td className="py-1 px-2 font-mono">{r.phone}</td>
+                            <td className="py-1 px-2 font-mono">{r.email || '-'}</td>
+                            <td className="py-1 px-2">{r.status}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setKesiswaanImportModalOpen(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg text-xs"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={parsedImportKesiswaanRows.length === 0}
+                onClick={handleCommitImportKesiswaan}
+                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-semibold text-xs flex items-center gap-1.5 shadow-xs"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Simpan {parsedImportKesiswaanRows.length} Tim Kesiswaan ke Database</span>
               </button>
             </div>
           </div>

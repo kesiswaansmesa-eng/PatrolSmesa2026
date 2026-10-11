@@ -66,7 +66,7 @@ export interface KKK {
   phone: string;
   officeRoom?: string; // Ruang Bengkel/Studio/Lab
   email?: string;
-  status: 'Aktif' | 'Nonaktif';
+  status: 'Aktif' | 'Nonaktif' | 'Cuti';
 }
 
 export interface TimKesiswaan {
@@ -76,7 +76,7 @@ export interface TimKesiswaan {
   position: string; // e.g. "Waka Kesiswaan", "Koordinator Piket & Tatib", "Pembina OSIS & MPK", "Staf Kedisiplinan"
   phone: string;
   email?: string;
-  status: 'Aktif' | 'Nonaktif';
+  status: 'Aktif' | 'Nonaktif' | 'Cuti';
 }
 
 export interface LateRecord {
