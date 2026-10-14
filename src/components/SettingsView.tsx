@@ -86,9 +86,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setIsPinging(true);
     onToast('Menghubungi basis data cloud & memeriksa sinkronisasi realtime...');
     try {
-      await testConnection();
-      onToast('✓ Basis data Cloud terhubung stabil! Sinkronisasi realtime aktif.');
-    } catch (e) {
+      const isConnected = await testConnection();
+      if (isConnected) {
+        onToast('✓ Basis data Cloud Firebase terhubung stabil! Sinkronisasi realtime aktif.');
+      } else {
+        onToast('Sedang menghubungkan ke basis data Firebase...');
+      }
+    } catch (e: any) {
       onToast('Peringatan: Periksa koneksi internet atau sesi cloud.');
     } finally {
       setIsPinging(false);
