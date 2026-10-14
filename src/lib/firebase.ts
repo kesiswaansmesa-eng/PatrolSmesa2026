@@ -9,6 +9,15 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
+// Automatically sign in anonymously so every browser on every PC has a valid Firebase auth session
+if (typeof window !== 'undefined') {
+  import('firebase/auth').then(({ signInAnonymously }) => {
+    signInAnonymously(auth).catch((err) => {
+      console.warn('Firebase Anonymous Auth notice:', err?.message || err);
+    });
+  });
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',

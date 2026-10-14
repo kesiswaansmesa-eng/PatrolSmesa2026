@@ -28,7 +28,13 @@ import {
   Cloud,
   Server,
   Radio,
-  RefreshCw
+  RefreshCw,
+  HelpCircle,
+  Info,
+  ExternalLink,
+  Layers,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface SettingsViewProps {
@@ -69,6 +75,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     error: null,
   });
   const [isPinging, setIsPinging] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   React.useEffect(() => {
     const unsub = subscribeSyncStatus((s) => setSyncStatus(s));
@@ -306,6 +313,108 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Jika koneksi internet sekolah sempat terputus, aplikasi tetap berjalan lancar tanpa macet.
             </p>
           </div>
+        </div>
+
+        {/* Toggleable Firebase Setup & Multi-Device Troubleshooting Guide */}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setShowSetupGuide(!showSetupGuide)}
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4 text-blue-500" />
+              <span>{showSetupGuide ? 'Sembunyikan Panduan Setup & Troubleshooting Firebase' : 'Lihat Panduan Setup Firebase & Solusi Sinkronisasi Antar-PC'}</span>
+              {showSetupGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+            {onSyncAllToCloud && (
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                Pindah PC? Klik tombol <span className="font-semibold text-emerald-600 dark:text-emerald-400">"Sinkronkan Semua Data ke Firebase"</span> di atas sebelum berpindah.
+              </span>
+            )}
+          </div>
+
+          {showSetupGuide && (
+            <div className="mt-3 p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4 text-xs text-slate-700 dark:text-slate-300 animate-in fade-in duration-150">
+              {/* Penyebab & Solusi */}
+              <div className="space-y-2">
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm">
+                  <Info className="w-4 h-4 text-amber-500" />
+                  <span>1. Mengapa Data Tersimpan di 1 Browser Tapi Belum Muncul di PC Lain?</span>
+                </h3>
+                <ul className="list-disc pl-5 space-y-1 text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                  <li>
+                    <strong>Penyebab Utama (Local Storage vs Cloud):</strong> Browser memiliki ruang penyimpanan lokal (<code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded">localStorage</code>) yang terisolasi di tiap laptop/komputer. Jika data diinput saat koneksi belum mengirim ke Cloud atau data hasil import belum disinkronkan, data tersebut hanya diam di komputer pertama.
+                  </li>
+                  <li>
+                    <strong>Solusi Agar Data Sama Persis di Semua PC:</strong> Di komputer pertama (tempat data diinput/diimpor), klik tombol hijau <strong className="text-emerald-600 dark:text-emerald-400">"Sinkronkan Semua Data ke Firebase"</strong>. Seketika itu seluruh data (Siswa, Catatan Pelanggaran, Jurusan, Guru BK) terunggah ke Cloud Firestore. Komputer kedua akan otomatis menerima data lewat listener realtime (<code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded">onSnapshot</code>).
+                  </li>
+                </ul>
+              </div>
+
+              {/* Struktur Koleksi / Tabel Firebase */}
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm">
+                  <Layers className="w-4 h-4 text-blue-500" />
+                  <span>2. Tabel / Koleksi Database di Firebase Firestore</span>
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-[11px]">
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="font-bold text-blue-600 dark:text-blue-400">records</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">Tabel Transaksi Pelanggaran: NIS, Nama, Kelas, Jurusan, Jam, Menit Terlambat, Alasan, Sanksi, Pembinaan BK.</div>
+                  </div>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="font-bold text-emerald-600 dark:text-emerald-400">students</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">Data Master Siswa: Hasil import Excel/CSV (NIS, NISN, Nama, Kelas, No HP Ortu, Wali Kelas).</div>
+                  </div>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="font-bold text-purple-600 dark:text-purple-400">counseling</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">Catatan Bimbingan Konseling Guru BK &amp; panggilan orang tua.</div>
+                  </div>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="font-bold text-amber-600 dark:text-amber-400">majors &amp; classes</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">Daftar Konsentrasi Keahlian (RPL, TKJ, dll) dan rombongan belajar kelas.</div>
+                  </div>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="font-bold text-indigo-600 dark:text-indigo-400">guruBK &amp; timKesiswaan</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">Master data personil penanggung jawab kedisiplinan dan konselor.</div>
+                  </div>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div className="font-bold text-rose-600 dark:text-rose-400">settings &amp; accounts</div>
+                    <div className="text-slate-500 dark:text-slate-400 text-[10px]">Konfigurasi sekolah (jam gerbang, kop surat) &amp; akun login petugas.</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tahapan Setup di Firebase Console */}
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>3. Tahapan Setup &amp; Verifikasi di Firebase Console</span>
+                </h3>
+                <ol className="list-decimal pl-5 space-y-1.5 text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed">
+                  <li>
+                    Buka <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 underline font-semibold inline-flex items-center gap-1">console.firebase.google.com <ExternalLink className="w-3 h-3" /></a> dan pilih project Anda (<code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">gen-lang-client-0010375591</code>).
+                  </li>
+                  <li>
+                    Pilih menu <strong>Build &gt; Firestore Database</strong> di bilah navigasi kiri.
+                  </li>
+                  <li>
+                    Di tab <strong>Rules</strong>, pastikan aturan mengizinkan baca-tulis (aplikasi ini telah mengonfigurasikan keamanan per koleksi).
+                  </li>
+                  <li>
+                    Pilih menu <strong>Build &gt; Authentication &gt; Sign-in method</strong>. Aktifkan (Enable) penyedia <strong>Anonymous</strong> agar setiap browser/PC langsung terotentikasi secara otomatis tanpa repot meminta login email Google.
+                  </li>
+                  <li>
+                    Kembali ke aplikasi ini, buka tab <strong>Master Data</strong> atau <strong>Pencatatan</strong>, lakukan import atau simpan data, lalu klik tombol <strong className="text-emerald-600 dark:text-emerald-400">"Sinkronkan Semua Data ke Firebase"</strong>.
+                  </li>
+                  <li>
+                    Buka tab <strong>Data</strong> di Firestore Console: Anda akan melihat koleksi <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">records</code> dan <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded font-mono">students</code> telah terisi data lengkap secara realtime!
+                  </li>
+                </ol>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
