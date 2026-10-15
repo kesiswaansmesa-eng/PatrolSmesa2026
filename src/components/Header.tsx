@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { SchoolLogo } from './SchoolLogo';
 import { AppRole, UserSession, AppSettings, Major } from '../types/patrol';
 import { subscribeSyncStatus, CloudSyncStatus } from '../utils/firebaseSync';
+import { subscribeSupabaseSyncStatus, SupabaseSyncStatus } from '../utils/supabaseSync';
+import { DatabaseProvider } from '../utils/storage';
 import { 
   LayoutDashboard, 
   UserPlus, 
@@ -42,6 +44,7 @@ interface HeaderProps {
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onSyncAllToCloud?: () => void;
+  backendProvider?: DatabaseProvider;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -62,6 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme = 'light',
   onToggleTheme,
   onSyncAllToCloud,
+  backendProvider = 'supabase',
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
@@ -72,10 +76,22 @@ export const Header: React.FC<HeaderProps> = ({
     lastSync: null,
     error: null,
   });
+  const [supabaseStatus, setSupabaseStatus] = useState<SupabaseSyncStatus>({
+    isConnected: true,
+    isSyncing: false,
+    lastSync: null,
+    error: null,
+    tablesReady: true,
+    missingTables: []
+  });
 
   useEffect(() => {
     const unsub = subscribeSyncStatus((s) => setSyncStatus(s));
-    return unsub;
+    const unsubSupabase = subscribeSupabaseSyncStatus((s) => setSupabaseStatus(s));
+    return () => {
+      unsub();
+      unsubSupabase();
+    };
   }, []);
 
   useEffect(() => {
@@ -186,44 +202,61 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Role Switcher, Theme Switcher & Action CTA */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* Zone 3: Actions & Profile */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Cloud Database Sync Status Indicator (Clickable to force sync) */}
-          <button
-            type="button"
-            onClick={onSyncAllToCloud}
-            disabled={syncStatus.isSyncing}
-            className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all cursor-pointer hover:shadow-xs active:scale-95 disabled:opacity-75 ${
-              syncStatus.isSyncing
-                ? 'bg-blue-50 dark:bg-blue-950/70 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
-                : syncStatus.isConnected
-                ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
-                : 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-850 text-amber-700 dark:text-amber-300 hover:bg-amber-100'
-            }`}
-            title={
-              syncStatus.isSyncing
-                ? 'Sedang menyinkronkan data dengan database cloud Firebase...'
-                : 'Klik untuk sinkronisasi paksa semua data lokal ke database Firebase Cloud agar sama di semua PC'
-            }
-          >
-            {syncStatus.isSyncing ? (
-              <RefreshCw className="w-3 h-3 animate-spin text-blue-600 dark:text-blue-400" />
-            ) : syncStatus.isConnected ? (
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            ) : (
-              <CloudOff className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-            )}
-            <span className="font-semibold whitespace-nowrap">
-              {syncStatus.isSyncing
-                ? 'Sinkronisasi...'
-                : syncStatus.isConnected
-                ? 'Cloud Realtime'
-                : 'Mode Offline (Klik Sync)'}
-            </span>
-          </button>
+          {(() => {
+            const isSupabase = backendProvider === 'supabase';
+            const isFirebase = backendProvider === 'firebase';
+            const activeIsSyncing = isSupabase ? supabaseStatus.isSyncing : syncStatus.isSyncing;
+            const activeIsConnected = isSupabase ? supabaseStatus.isConnected : syncStatus.isConnected;
+
+            return (
+              <button
+                type="button"
+                onClick={onSyncAllToCloud}
+                disabled={activeIsSyncing}
+                className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all cursor-pointer hover:shadow-xs active:scale-95 disabled:opacity-75 ${
+                  activeIsSyncing
+                    ? 'bg-indigo-50 dark:bg-indigo-950/70 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+                    : activeIsConnected
+                    ? isSupabase
+                      ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+                      : 'bg-blue-50 dark:bg-blue-950/70 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100'
+                    : 'bg-amber-50 dark:bg-amber-950/70 border-amber-200 dark:border-amber-850 text-amber-700 dark:text-amber-300 hover:bg-amber-100'
+                }`}
+                title={
+                  activeIsSyncing
+                    ? 'Sedang menyinkronkan data dengan database...'
+                    : isSupabase
+                    ? 'Supabase Backend (PatrolSmesa) Aktif. Klik untuk sinkronisasi paksa.'
+                    : isFirebase
+                    ? 'Firebase Firestore Cloud Aktif. Klik untuk sinkronisasi paksa.'
+                    : 'Mode Lokal Offline'
+                }
+              >
+                {activeIsSyncing ? (
+                  <RefreshCw className="w-3 h-3 animate-spin text-indigo-600 dark:text-indigo-400" />
+                ) : activeIsConnected ? (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                ) : (
+                  <CloudOff className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                )}
+                <span className="font-semibold whitespace-nowrap">
+                  {activeIsSyncing
+                    ? 'Sinkronisasi...'
+                    : isSupabase
+                    ? 'Supabase: PatrolSmesa'
+                    : isFirebase
+                    ? 'Firebase Cloud'
+                    : 'Lokal Offline'}
+                </span>
+              </button>
+            );
+          })()}
 
           {/* Global Theme Switcher Button */}
           {onToggleTheme && (

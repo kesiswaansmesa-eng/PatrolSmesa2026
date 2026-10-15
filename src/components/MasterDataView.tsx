@@ -60,6 +60,7 @@ interface MasterDataViewProps {
   onUpdateAccounts?: (list: UserAccount[]) => void;
   onResetViolations?: () => void;
   onWipeAllData?: () => void;
+  onResetSampleData?: () => void;
   onBackupData?: () => void;
   onRestoreData?: (file: File) => void;
   onToast: (msg: string) => void;
@@ -84,6 +85,7 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   onUpdateAccounts,
   onResetViolations,
   onWipeAllData,
+  onResetSampleData,
   onBackupData,
   onRestoreData,
   onToast,
@@ -107,6 +109,7 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
   // Confirmation Modals
   const [confirmResetViolationsOpen, setConfirmResetViolationsOpen] = useState(false);
   const [confirmWipeOpen, setConfirmWipeOpen] = useState(false);
+  const [confirmResetSampleOpen, setConfirmResetSampleOpen] = useState(false);
   const [wipeConfirmInput, setWipeConfirmInput] = useState('');
 
   // Modals state for Students
@@ -1939,6 +1942,16 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
           >
             <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span>Reset Pelanggaran</span>
+          </button>
+
+          {/* Reset Sample Data Button (SMKN 1 Jember) */}
+          <button
+            onClick={() => setConfirmResetSampleOpen(true)}
+            className="px-3 py-2 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-800/60 hover:bg-purple-100 dark:hover:bg-purple-950/70 rounded-lg transition-colors flex items-center gap-1.5 shadow-xs"
+            title="Muat ulang seluruh data contoh resmi SMKN 1 Jember"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span>Reset Data Sampel</span>
           </button>
 
           {/* Wipe All Data Button */}
@@ -4124,6 +4137,72 @@ export const MasterDataView: React.FC<MasterDataViewProps> = ({
                 className="px-4 py-2 bg-red-700 hover:bg-red-800 disabled:opacity-40 text-white font-semibold rounded-lg shadow-xs"
               >
                 Hapus Semua Data Sekarang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog: Reset ke Data Sampel SMKN 1 Jember */}
+      {confirmResetSampleOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-purple-200 dark:border-purple-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-gradient-to-r from-purple-700 to-indigo-700 text-white px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-200" />
+                <h3 className="font-bold text-sm">Muat Ulang Data Sampel SMKN 1 Jember</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmResetSampleOpen(false)}
+                className="text-purple-200 hover:text-white"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3.5 text-xs text-slate-700 dark:text-slate-300">
+              <p className="leading-relaxed">
+                Apakah Anda ingin mengembalikan seluruh master data dan pencatatan ke <strong>Dataset Contoh Resmi SMKN 1 Jember</strong>?
+              </p>
+
+              <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 rounded-xl p-3.5 space-y-2">
+                <div className="font-semibold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>Cakupan Data yang Dimuat Ulang:</span>
+                </div>
+                <ul className="list-disc pl-5 space-y-1 text-purple-950/80 dark:text-purple-300/80 text-[11px]">
+                  <li><strong>Siswa Aktif:</strong> Siswa contoh di 7 Konsentrasi Keahlian (RPL, AKL, MPLB, BD, DKV, KL, HTL).</li>
+                  <li><strong>Struktur Kelas:</strong> 30+ Rombel kelas X, XI, XII beserta Wali Kelas &amp; Ruangan.</li>
+                  <li><strong>Personil Sekolah:</strong> 7 Kaprodi (KKK), Guru BK, dan Tim Kesiswaan SMKN 1 Jember.</li>
+                  <li><strong>Riwayat Keterlambatan:</strong> Catatan pelanggaran gerbang pagi dan komitmen pembinaan BK contoh.</li>
+                </ul>
+              </div>
+
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-lg text-blue-900 dark:text-blue-300 text-[11px] flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <span>Data otomatis diperbarui di lokal dan disinkronkan ke Cloud Firebase.</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 dark:bg-slate-850 px-5 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setConfirmResetSampleOpen(false)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg font-medium"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmResetSampleOpen(false);
+                  onResetSampleData?.();
+                }}
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white font-semibold rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Ya, Muat Ulang Data Sampel</span>
               </button>
             </div>
           </div>

@@ -800,3 +800,36 @@ export async function wipeAllCloudData(): Promise<void> {
     handleFirestoreError(error, OperationType.DELETE, 'operational-data');
   }
 }
+
+/**
+ * Paksa reset seluruh basis data Cloud Firebase ke dataset contoh resmi SMKN 1 Jember.
+ */
+export async function forceResetToSampleDataCloud(): Promise<void> {
+  try {
+    updateStatus({ isSyncing: true });
+    // First, clear old records and counseling
+    await resetViolationsCloud();
+
+    // Now push all sample master and operational data
+    const samplePayload = {
+      records: INITIAL_LATE_RECORDS,
+      students: INITIAL_STUDENTS,
+      counseling: INITIAL_COUNSELING_ENTRIES,
+      guruBK: INITIAL_GURU_BK,
+      kkk: INITIAL_KKK,
+      timKesiswaan: INITIAL_TIM_KESISWAAN,
+      majors: MAJORS,
+      classes: INITIAL_CLASSES,
+      accounts: INITIAL_ACCOUNTS,
+      settings: DEFAULT_SETTINGS,
+    };
+
+    await restoreFullDatabaseToCloud(samplePayload);
+    await saveSettingsCloud(DEFAULT_SETTINGS);
+    updateStatus({ isConnected: true, isSyncing: false, lastSync: new Date(), error: null });
+  } catch (err) {
+    console.error('Gagal mereset Cloud Firebase ke data contoh SMKN 1 Jember:', err);
+    updateStatus({ isConnected: false, isSyncing: false, error: String(err) });
+    throw err;
+  }
+}

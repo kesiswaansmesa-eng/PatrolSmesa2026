@@ -49,7 +49,10 @@ import {
   resetViolationsOnly,
   wipeAllSystemData,
   exportSystemBackup,
-  restoreSystemBackup
+  restoreSystemBackup,
+  DatabaseProvider,
+  getStoredBackendProvider,
+  saveStoredBackendProvider
 } from './utils/storage';
 import { 
   seedInitialDataIfEmpty,
@@ -83,8 +86,36 @@ import {
   saveSettingsCloud,
   restoreFullDatabaseToCloud,
   resetViolationsCloud,
-  wipeAllCloudData
+  wipeAllCloudData,
+  forceResetToSampleDataCloud
 } from './utils/firebaseSync';
+import {
+  saveRecordSupabase,
+  deleteRecordSupabase,
+  saveRecordsBatchSupabase,
+  saveStudentsBatchSupabase,
+  deleteStudentSupabase,
+  saveClassesBatchSupabase,
+  deleteClassSupabase,
+  saveMajorsBatchSupabase,
+  deleteMajorSupabase,
+  saveGuruBKBatchSupabase,
+  deleteGuruBKSupabase,
+  saveKKKBatchSupabase,
+  deleteKKKSupabase,
+  saveTimKesiswaanBatchSupabase,
+  deleteTimKesiswaanSupabase,
+  saveAccountsBatchSupabase,
+  deleteAccountSupabase,
+  saveSettingsSupabase,
+  saveCounselingSupabase,
+  deleteCounselingSupabase,
+  initAndBootstrapSupabaseData,
+  startSupabaseRealtimeSync,
+  forceResetToSampleDataSupabase,
+  resetViolationsSupabase
+} from './utils/supabaseSync';
+import { checkSupabaseTablesStatus, getSupabaseConfig } from './lib/supabase';
 import { testConnection } from './lib/firebase';
 import { AppSettings, DEFAULT_SETTINGS } from './types/patrol';
 import { LoginPage } from './components/LoginPage';
@@ -121,6 +152,10 @@ export default function App() {
   const [selectedMajorFilter, setSelectedMajorFilter] = useState<string>('ALL');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('ALL');
 
+  // Backend database provider: defaults to 'supabase' as requested
+  const [backendProvider, setBackendProvider] = useState<DatabaseProvider>(getStoredBackendProvider());
+  const [supabaseTablesPending, setSupabaseTablesPending] = useState(false);
+
   // Modals state
   const [quickRecordModalOpen, setQuickRecordModalOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
@@ -151,79 +186,161 @@ export default function App() {
       setUserSession(savedSession);
       setActiveRole(savedSession.role);
     } else {
-      // Default to null so user can experience the official Login Page
       setUserSession(null);
       setActiveRole(getStoredRole());
     }
 
-    // Test cloud database connection & bootstrap cloud if empty
-    initAndBootstrapCloudData({
-      records: getStoredRecords(),
-      students: getStoredStudents(),
-      counseling: getStoredCounseling(),
-      guruBK: getStoredGuruBK(),
-      kkk: getStoredKKK(),
-      timKesiswaan: getStoredTimKesiswaan(),
-      majors: getStoredMajors(),
-      classes: getStoredClasses(),
-      accounts: getStoredAccounts(),
-      settings: getStoredSettings(),
-    }).then((res) => {
-      if (res === 'seeded_from_local') {
-        triggerToast('Data dari browser ini otomatis diunggah & tersimpan permanen di Firebase!');
-      }
-    }).catch((err) => {
-      console.warn('Initial cloud connection notice:', err);
-    });
-
-    // Start Realtime synchronization with Cloud Firestore
-    const stopSync = startRealtimeSync({
-      onRecordsChange: (cloudRecords) => {
-        setRecords(cloudRecords);
-        saveStoredRecords(cloudRecords);
-      },
-      onStudentsChange: (cloudStudents) => {
-        setStudents(cloudStudents);
-        saveStoredStudents(cloudStudents);
-      },
-      onCounselingChange: (cloudCounseling) => {
-        setCounselingEntries(cloudCounseling);
-        saveStoredCounseling(cloudCounseling);
-      },
-      onGuruBKChange: (cloudGuru) => {
-        setGuruBK(cloudGuru);
-        saveStoredGuruBK(cloudGuru);
-      },
-      onKKKChange: (cloudKKK) => {
-        setKKKList(cloudKKK);
-        saveStoredKKK(cloudKKK);
-      },
-      onTimKesiswaanChange: (cloudTim) => {
-        setTimKesiswaan(cloudTim);
-        saveStoredTimKesiswaan(cloudTim);
-      },
-      onMajorsChange: (cloudMajors) => {
-        setMajors(cloudMajors);
-        saveStoredMajors(cloudMajors);
-      },
-      onClassesChange: (cloudClasses) => {
-        setSchoolClasses(cloudClasses);
-        saveStoredClasses(cloudClasses);
-      },
-      onAccountsChange: (cloudAccounts) => {
-        setAccounts(cloudAccounts);
-        saveStoredAccounts(cloudAccounts);
-      },
-      onSettingsChange: (cloudSettings) => {
-        setSettings(cloudSettings);
-        saveStoredSettings(cloudSettings);
-      },
-    });
-
-    return () => {
-      stopSync();
-    };
+    // Check if Supabase tables exist
+    checkSupabaseTablesStatus().then((status) => {
+      setSupabaseTablesPending(!status.allExist);
+    }).catch(console.warn);
   }, []);
+
+  // Realtime Sync Effect based on backendProvider ('supabase' | 'firebase')
+  useEffect(() => {
+    if (backendProvider === 'supabase') {
+      // Bootstrap Supabase if empty
+      initAndBootstrapSupabaseData({
+        records: getStoredRecords(),
+        students: getStoredStudents(),
+        counseling: getStoredCounseling(),
+        guruBK: getStoredGuruBK(),
+        kkk: getStoredKKK(),
+        timKesiswaan: getStoredTimKesiswaan(),
+        majors: getStoredMajors(),
+        classes: getStoredClasses(),
+        accounts: getStoredAccounts(),
+        settings: getStoredSettings(),
+      }).then((res) => {
+        if (res === 'tables_missing') {
+          setSupabaseTablesPending(true);
+        } else if (res === 'seeded_from_local') {
+          setSupabaseTablesPending(false);
+          triggerToast('Data SMKN 1 Jember berhasil diunggah ke database Supabase (PatrolSmesa)!');
+        } else if (res === 'already_seeded') {
+          setSupabaseTablesPending(false);
+        }
+      }).catch((err) => {
+        console.warn('Initial Supabase connection notice:', err);
+      });
+
+      // Start Supabase Realtime synchronization
+      const stopSync = startSupabaseRealtimeSync({
+        onRecordsChange: (cloudRecords) => {
+          setRecords(cloudRecords);
+          saveStoredRecords(cloudRecords);
+        },
+        onStudentsChange: (cloudStudents) => {
+          setStudents(cloudStudents);
+          saveStoredStudents(cloudStudents);
+        },
+        onCounselingChange: (cloudCounseling) => {
+          setCounselingEntries(cloudCounseling);
+          saveStoredCounseling(cloudCounseling);
+        },
+        onGuruBKChange: (cloudGuru) => {
+          setGuruBK(cloudGuru);
+          saveStoredGuruBK(cloudGuru);
+        },
+        onKKKChange: (cloudKKK) => {
+          setKKKList(cloudKKK);
+          saveStoredKKK(cloudKKK);
+        },
+        onTimKesiswaanChange: (cloudTim) => {
+          setTimKesiswaan(cloudTim);
+          saveStoredTimKesiswaan(cloudTim);
+        },
+        onMajorsChange: (cloudMajors) => {
+          setMajors(cloudMajors);
+          saveStoredMajors(cloudMajors);
+        },
+        onClassesChange: (cloudClasses) => {
+          setSchoolClasses(cloudClasses);
+          saveStoredClasses(cloudClasses);
+        },
+        onAccountsChange: (cloudAccounts) => {
+          setAccounts(cloudAccounts);
+          saveStoredAccounts(cloudAccounts);
+        },
+        onSettingsChange: (cloudSettings) => {
+          setSettings(cloudSettings);
+          saveStoredSettings(cloudSettings);
+        },
+      });
+
+      return () => {
+        stopSync();
+      };
+    } else if (backendProvider === 'firebase') {
+      // Test cloud database connection & bootstrap Firebase if empty
+      initAndBootstrapCloudData({
+        records: getStoredRecords(),
+        students: getStoredStudents(),
+        counseling: getStoredCounseling(),
+        guruBK: getStoredGuruBK(),
+        kkk: getStoredKKK(),
+        timKesiswaan: getStoredTimKesiswaan(),
+        majors: getStoredMajors(),
+        classes: getStoredClasses(),
+        accounts: getStoredAccounts(),
+        settings: getStoredSettings(),
+      }).then((res) => {
+        if (res === 'seeded_from_local') {
+          triggerToast('Data dari browser ini otomatis diunggah & tersimpan permanen di Firebase!');
+        }
+      }).catch((err) => {
+        console.warn('Initial Firebase connection notice:', err);
+      });
+
+      // Start Realtime synchronization with Cloud Firestore
+      const stopSync = startRealtimeSync({
+        onRecordsChange: (cloudRecords) => {
+          setRecords(cloudRecords);
+          saveStoredRecords(cloudRecords);
+        },
+        onStudentsChange: (cloudStudents) => {
+          setStudents(cloudStudents);
+          saveStoredStudents(cloudStudents);
+        },
+        onCounselingChange: (cloudCounseling) => {
+          setCounselingEntries(cloudCounseling);
+          saveStoredCounseling(cloudCounseling);
+        },
+        onGuruBKChange: (cloudGuru) => {
+          setGuruBK(cloudGuru);
+          saveStoredGuruBK(cloudGuru);
+        },
+        onKKKChange: (cloudKKK) => {
+          setKKKList(cloudKKK);
+          saveStoredKKK(cloudKKK);
+        },
+        onTimKesiswaanChange: (cloudTim) => {
+          setTimKesiswaan(cloudTim);
+          saveStoredTimKesiswaan(cloudTim);
+        },
+        onMajorsChange: (cloudMajors) => {
+          setMajors(cloudMajors);
+          saveStoredMajors(cloudMajors);
+        },
+        onClassesChange: (cloudClasses) => {
+          setSchoolClasses(cloudClasses);
+          saveStoredClasses(cloudClasses);
+        },
+        onAccountsChange: (cloudAccounts) => {
+          setAccounts(cloudAccounts);
+          saveStoredAccounts(cloudAccounts);
+        },
+        onSettingsChange: (cloudSettings) => {
+          setSettings(cloudSettings);
+          saveStoredSettings(cloudSettings);
+        },
+      });
+
+      return () => {
+        stopSync();
+      };
+    }
+  }, [backendProvider]);
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -291,6 +408,16 @@ export default function App() {
     triggerToast(`Beralih ke mode: ${role.toUpperCase()}`);
   };
 
+  const handleSwitchBackendProvider = (newProvider: DatabaseProvider) => {
+    setBackendProvider(newProvider);
+    saveStoredBackendProvider(newProvider);
+    if (newProvider === 'supabase') {
+      checkSupabaseTablesStatus().then((res) => {
+        setSupabaseTablesPending(!res.allExist);
+      });
+    }
+  };
+
   // Add new late record
   const handleSaveRecord = (recordData: Omit<LateRecord, 'id' | 'createdAt'>) => {
     const newRecord: LateRecord = {
@@ -302,11 +429,20 @@ export default function App() {
     const updated = [newRecord, ...records];
     setRecords(updated);
     saveStoredRecords(updated);
-    saveRecordCloud(newRecord).then(() => {
-      triggerToast(`Pelanggaran ${recordData.studentName} tersimpan di Firebase.`);
-    }).catch((err) => {
-      console.warn('Cloud save warning (cached locally):', err);
-    });
+
+    if (backendProvider === 'supabase') {
+      saveRecordSupabase(newRecord).then(() => {
+        triggerToast(`Pelanggaran ${recordData.studentName} tersimpan di Supabase.`);
+      }).catch((err) => {
+        console.warn('Supabase save warning (cached locally):', err);
+      });
+    } else if (backendProvider === 'firebase') {
+      saveRecordCloud(newRecord).then(() => {
+        triggerToast(`Pelanggaran ${recordData.studentName} tersimpan di Firebase.`);
+      }).catch((err) => {
+        console.warn('Cloud save warning (cached locally):', err);
+      });
+    }
     triggerToast(`Data keterlambatan ${recordData.studentName} berhasil dicatat.`);
   };
 
@@ -315,13 +451,15 @@ export default function App() {
     const updated = records.filter((r) => r.id !== id);
     setRecords(updated);
     saveStoredRecords(updated);
-    deleteRecordCloud(id).catch((err) => {
-      console.warn('Cloud delete warning:', err);
-    });
+    if (backendProvider === 'supabase') {
+      deleteRecordSupabase(id).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      deleteRecordCloud(id).catch(console.warn);
+    }
     triggerToast('Catatan keterlambatan berhasil dihapus.');
   };
 
-  // Import batch records (Otomatis terekam ke Firebase Firestore)
+  // Import batch records
   const handleImportRecords = (newRecords: LateRecord[], mode: 'append' | 'replace' = 'append') => {
     let updated: LateRecord[] = [];
     if (mode === 'replace') {
@@ -333,12 +471,22 @@ export default function App() {
     }
     setRecords(updated);
     saveStoredRecords(updated);
-    saveRecordsBatchCloud(newRecords).then(() => {
-      triggerToast(`Berhasil merekam ${newRecords.length} data pelanggaran langsung ke database Firebase!`);
-    }).catch((err) => {
-      console.warn('Batch cloud save records warning:', err);
-      triggerToast(`Data tersimpan lokal, proses sinkronisasi database Firebase sedang berjalan.`);
-    });
+
+    if (backendProvider === 'supabase') {
+      saveRecordsBatchSupabase(newRecords).then(() => {
+        triggerToast(`Berhasil merekam ${newRecords.length} data pelanggaran langsung ke database Supabase!`);
+      }).catch((err) => {
+        console.warn('Batch Supabase save records warning:', err);
+        triggerToast(`Data tersimpan lokal, proses sinkronisasi database Supabase sedang berjalan.`);
+      });
+    } else if (backendProvider === 'firebase') {
+      saveRecordsBatchCloud(newRecords).then(() => {
+        triggerToast(`Berhasil merekam ${newRecords.length} data pelanggaran langsung ke database Firebase!`);
+      }).catch((err) => {
+        console.warn('Batch cloud save records warning:', err);
+        triggerToast(`Data tersimpan lokal, proses sinkronisasi database Firebase sedang berjalan.`);
+      });
+    }
   };
 
   // Update counseling status
@@ -353,7 +501,11 @@ export default function App() {
     saveStoredRecords(updated);
     const target = updated.find((r) => r.id === id);
     if (target) {
-      saveRecordCloud(target).catch(console.warn);
+      if (backendProvider === 'supabase') {
+        saveRecordSupabase(target).catch(console.warn);
+      } else if (backendProvider === 'firebase') {
+        saveRecordCloud(target).catch(console.warn);
+      }
     }
     triggerToast(`Status pembinaan diperbarui: ${status}`);
   };
@@ -367,11 +519,20 @@ export default function App() {
     const updated = [newEntry, ...counselingEntries];
     setCounselingEntries(updated);
     saveStoredCounseling(updated);
-    saveCounselingCloud(newEntry).then(() => {
-      triggerToast(`Sesi konseling ${entryData.studentName} tersimpan di Firebase.`);
-    }).catch((err) => {
-      console.warn('Cloud counseling save warning:', err);
-    });
+
+    if (backendProvider === 'supabase') {
+      saveCounselingSupabase(newEntry).then(() => {
+        triggerToast(`Sesi konseling ${entryData.studentName} tersimpan di Supabase.`);
+      }).catch((err) => {
+        console.warn('Supabase counseling save warning:', err);
+      });
+    } else if (backendProvider === 'firebase') {
+      saveCounselingCloud(newEntry).then(() => {
+        triggerToast(`Sesi konseling ${entryData.studentName} tersimpan di Firebase.`);
+      }).catch((err) => {
+        console.warn('Cloud counseling save warning:', err);
+      });
+    }
     triggerToast(`Sesi konseling untuk ${entryData.studentName} berhasil dicatat.`);
   };
 
@@ -390,105 +551,154 @@ export default function App() {
     setPrintModalOpen(true);
   };
 
-  // Reset demo data
-  const handleResetSampleData = () => {
+  // Reset demo data to official SMKN 1 Jember sample database
+  const handleResetSampleData = async () => {
     if (
       confirm(
-        'Kembalikan seluruh data ke contoh awal SMKN 1 Jember? Data yang baru diinput akan direset.'
+        'Kembalikan seluruh data ke contoh awal SMKN 1 Jember? Seluruh data siswa, rombel kelas, guru BK, dan riwayat pelanggaran contoh akan dimuat ulang.'
       )
     ) {
-      resetAllData();
-      setRecords(getStoredRecords());
-      setStudents(getStoredStudents());
-      setCounselingEntries(getStoredCounseling());
-      setGuruBK(getStoredGuruBK());
-      setKKKList(getStoredKKK());
-      setTimKesiswaan(getStoredTimKesiswaan());
-      setMajors(getStoredMajors());
-      setSchoolClasses(getStoredClasses());
-      setAccounts(getStoredAccounts());
-      seedInitialDataIfEmpty().catch(console.warn);
-      triggerToast('Data contoh SMKN 1 Jember berhasil dimuat ulang ke database.');
+      try {
+        resetAllData();
+        saveStoredSettings(DEFAULT_SETTINGS);
+        setSettings(DEFAULT_SETTINGS);
+        setRecords(getStoredRecords());
+        setStudents(getStoredStudents());
+        setCounselingEntries(getStoredCounseling());
+        setGuruBK(getStoredGuruBK());
+        setKKKList(getStoredKKK());
+        setTimKesiswaan(getStoredTimKesiswaan());
+        setMajors(getStoredMajors());
+        setSchoolClasses(getStoredClasses());
+        setAccounts(getStoredAccounts());
+        
+        if (backendProvider === 'supabase') {
+          triggerToast('Sedang memuat ulang data contoh SMKN 1 Jember ke Supabase...');
+          const res = await forceResetToSampleDataSupabase();
+          if (res.success) {
+            setSupabaseTablesPending(false);
+            triggerToast('✓ Berhasil! Data contoh SMKN 1 Jember telah dimuat ulang ke database Supabase PatrolSmesa.');
+          } else {
+            triggerToast(`Supabase: ${res.message}`);
+          }
+        } else if (backendProvider === 'firebase') {
+          triggerToast('Sedang memuat ulang data contoh SMKN 1 Jember ke Cloud Firebase...');
+          await forceResetToSampleDataCloud();
+          triggerToast('✓ Berhasil! Data contoh SMKN 1 Jember telah dimuat ulang ke database Firebase.');
+        } else {
+          triggerToast('✓ Data contoh SMKN 1 Jember berhasil dimuat ulang ke memori lokal.');
+        }
+      } catch (e) {
+        console.warn('Sync cloud sample data notice:', e);
+        triggerToast('Data contoh telah direset ke lokal.');
+      }
     }
   };
 
   // Update master handlers
   const handleUpdateStudents = (newStudents: Student[]) => {
-    // Delete any removed students from cloud
     const newIds = new Set(newStudents.map((s) => s.id));
-    students.filter((s) => !newIds.has(s.id)).forEach((s) => {
-      deleteStudentCloud(s.id).catch(console.warn);
-    });
-
+    const removedStudents = students.filter((s) => !newIds.has(s.id));
     setStudents(newStudents);
     saveStoredStudents(newStudents);
-    saveStudentsBatchCloud(newStudents).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removedStudents.forEach((s) => deleteStudentSupabase(s.id).catch(console.warn));
+      saveStudentsBatchSupabase(newStudents).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removedStudents.forEach((s) => deleteStudentCloud(s.id).catch(console.warn));
+      saveStudentsBatchCloud(newStudents).catch(console.warn);
+    }
   };
 
   const handleUpdateMajors = (newList: Major[]) => {
     const newIds = new Set(newList.map((m) => m.id));
-    majors.filter((m) => !newIds.has(m.id)).forEach((m) => {
-      deleteMasterMajorCloud(m.id).catch(console.warn);
-    });
-
+    const removed = majors.filter((m) => !newIds.has(m.id));
     setMajors(newList);
     saveStoredMajors(newList);
-    saveMajorsBatchCloud(newList).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removed.forEach((m) => deleteMajorSupabase(m.id).catch(console.warn));
+      saveMajorsBatchSupabase(newList).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removed.forEach((m) => deleteMasterMajorCloud(m.id).catch(console.warn));
+      saveMajorsBatchCloud(newList).catch(console.warn);
+    }
   };
 
   const handleUpdateClasses = (newList: SchoolClass[]) => {
     const newIds = new Set(newList.map((c) => c.id));
-    schoolClasses.filter((c) => !newIds.has(c.id)).forEach((c) => {
-      deleteMasterClassCloud(c.id).catch(console.warn);
-    });
-
+    const removed = schoolClasses.filter((c) => !newIds.has(c.id));
     setSchoolClasses(newList);
     saveStoredClasses(newList);
-    saveClassesBatchCloud(newList).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removed.forEach((c) => deleteClassSupabase(c.id).catch(console.warn));
+      saveClassesBatchSupabase(newList).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removed.forEach((c) => deleteMasterClassCloud(c.id).catch(console.warn));
+      saveClassesBatchCloud(newList).catch(console.warn);
+    }
   };
 
   const handleUpdateGuruBK = (newList: GuruBK[]) => {
     const newIds = new Set(newList.map((g) => g.id));
-    guruBK.filter((g) => !newIds.has(g.id)).forEach((g) => {
-      deleteMasterGuruBKCloud(g.id).catch(console.warn);
-    });
-
+    const removed = guruBK.filter((g) => !newIds.has(g.id));
     setGuruBK(newList);
     saveStoredGuruBK(newList);
-    saveGuruBKBatchCloud(newList).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removed.forEach((g) => deleteGuruBKSupabase(g.id).catch(console.warn));
+      saveGuruBKBatchSupabase(newList).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removed.forEach((g) => deleteMasterGuruBKCloud(g.id).catch(console.warn));
+      saveGuruBKBatchCloud(newList).catch(console.warn);
+    }
   };
 
   const handleUpdateKKK = (newList: KKK[]) => {
     const newIds = new Set(newList.map((k) => k.id));
-    kkkList.filter((k) => !newIds.has(k.id)).forEach((k) => {
-      deleteMasterKKKCloud(k.id).catch(console.warn);
-    });
-
+    const removed = kkkList.filter((k) => !newIds.has(k.id));
     setKKKList(newList);
     saveStoredKKK(newList);
-    saveKKKBatchCloud(newList).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removed.forEach((k) => deleteKKKSupabase(k.id).catch(console.warn));
+      saveKKKBatchSupabase(newList).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removed.forEach((k) => deleteMasterKKKCloud(k.id).catch(console.warn));
+      saveKKKBatchCloud(newList).catch(console.warn);
+    }
   };
 
   const handleUpdateTimKesiswaan = (newList: TimKesiswaan[]) => {
     const newIds = new Set(newList.map((t) => t.id));
-    timKesiswaan.filter((t) => !newIds.has(t.id)).forEach((t) => {
-      deleteMasterTimKesiswaanCloud(t.id).catch(console.warn);
-    });
-
+    const removed = timKesiswaan.filter((t) => !newIds.has(t.id));
     setTimKesiswaan(newList);
     saveStoredTimKesiswaan(newList);
-    saveTimKesiswaanBatchCloud(newList).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removed.forEach((t) => deleteTimKesiswaanSupabase(t.id).catch(console.warn));
+      saveTimKesiswaanBatchSupabase(newList).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removed.forEach((t) => deleteMasterTimKesiswaanCloud(t.id).catch(console.warn));
+      saveTimKesiswaanBatchCloud(newList).catch(console.warn);
+    }
   };
 
   const handleUpdateAccounts = (newList: UserAccount[]) => {
     const newIds = new Set(newList.map((a) => a.id));
-    accounts.filter((a) => !newIds.has(a.id)).forEach((a) => {
-      deleteAccountCloud(a.id).catch(console.warn);
-    });
-
+    const removed = accounts.filter((a) => !newIds.has(a.id));
     setAccounts(newList);
     saveStoredAccounts(newList);
-    saveAccountsBatchCloud(newList).catch(console.warn);
+
+    if (backendProvider === 'supabase') {
+      removed.forEach((a) => deleteAccountSupabase(a.id).catch(console.warn));
+      saveAccountsBatchSupabase(newList).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      removed.forEach((a) => deleteAccountCloud(a.id).catch(console.warn));
+      saveAccountsBatchCloud(newList).catch(console.warn);
+    }
   };
 
   // Reset Violations only
@@ -496,7 +706,11 @@ export default function App() {
     resetViolationsOnly();
     setRecords([]);
     setCounselingEntries([]);
-    resetViolationsCloud().catch(console.warn);
+    if (backendProvider === 'supabase') {
+      resetViolationsSupabase().catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      resetViolationsCloud().catch(console.warn);
+    }
     triggerToast('Seluruh riwayat pelanggaran dan pembinaan siswa berhasil direset.');
   };
 
@@ -507,7 +721,11 @@ export default function App() {
     setCounselingEntries([]);
     setStudents([]);
     setSchoolClasses([]);
-    wipeAllCloudData().catch(console.warn);
+    if (backendProvider === 'supabase') {
+      resetViolationsSupabase().catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      wipeAllCloudData().catch(console.warn);
+    }
     triggerToast('Basis data operasional berhasil dihapus bersih.');
   };
 
@@ -517,7 +735,7 @@ export default function App() {
     triggerToast('File backup data (JSON) berhasil diunduh ke PC.');
   };
 
-  // Restore Data (JSON) - Otomatis langsung terekam ke database Firebase
+  // Restore Data (JSON)
   const handleRestoreData = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -537,13 +755,27 @@ export default function App() {
           setAccounts(getStoredAccounts());
           setSettings(getStoredSettings());
 
-          triggerToast('Merekam seluruh data pemulihan ke database Firebase...');
-          try {
-            await restoreFullDatabaseToCloud(parsed);
-            triggerToast('Pemulihan sukses: Seluruh data otomatis terekam permanen di Firebase!');
-          } catch (cloudErr) {
-            console.error('Kendala sinkronisasi Firebase saat restore:', cloudErr);
-            triggerToast('Data tersimpan lokal, proses sinkronisasi database Firebase sedang berjalan.');
+          if (backendProvider === 'supabase') {
+            triggerToast('Merekam seluruh data pemulihan ke database Supabase...');
+            try {
+              if (parsed.majors) await saveMajorsBatchSupabase(parsed.majors);
+              if (parsed.classes) await saveClassesBatchSupabase(parsed.classes);
+              if (parsed.students) await saveStudentsBatchSupabase(parsed.students);
+              if (parsed.records) await saveRecordsBatchSupabase(parsed.records);
+              triggerToast('Pemulihan sukses: Seluruh data otomatis terekam di Supabase!');
+            } catch (supaErr) {
+              console.error('Kendala Supabase restore:', supaErr);
+              triggerToast('Data tersimpan lokal, proses sinkronisasi Supabase tertunda.');
+            }
+          } else if (backendProvider === 'firebase') {
+            triggerToast('Merekam seluruh data pemulihan ke database Firebase...');
+            try {
+              await restoreFullDatabaseToCloud(parsed);
+              triggerToast('Pemulihan sukses: Seluruh data otomatis terekam permanen di Firebase!');
+            } catch (cloudErr) {
+              console.error('Kendala sinkronisasi Firebase saat restore:', cloudErr);
+              triggerToast('Data tersimpan lokal, proses sinkronisasi database Firebase sedang berjalan.');
+            }
           }
         } else {
           triggerToast('Gagal memulihkan: Format backup tidak dikenali.');
@@ -555,26 +787,46 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // Sinkronisasi manual seluruh data lokal ke Firebase Firestore
+  // Sinkronisasi manual seluruh data lokal ke Database Cloud
   const handleSyncAllToCloud = async () => {
-    triggerToast('Merekam seluruh data lokal ke database Firebase...');
-    try {
-      await restoreFullDatabaseToCloud({
-        records,
-        students,
-        counseling: counselingEntries,
-        guruBK,
-        kkk: kkkList,
-        timKesiswaan,
-        majors,
-        classes: schoolClasses,
-        accounts,
-        settings,
-      });
-      triggerToast('Seluruh data transaksi & master berhasil terekam ke database Firebase!');
-    } catch (err) {
-      console.error('Gagal sinkronisasi data ke Firebase:', err);
-      triggerToast('Gagal merekam ke Firebase. Periksa koneksi internet/status database.');
+    if (backendProvider === 'supabase') {
+      triggerToast('Menyinkronkan seluruh master data & riwayat ke Supabase PatrolSmesa...');
+      try {
+        await saveMajorsBatchSupabase(majors);
+        await saveClassesBatchSupabase(schoolClasses);
+        await saveStudentsBatchSupabase(students);
+        await saveRecordsBatchSupabase(records);
+        await saveGuruBKBatchSupabase(guruBK);
+        await saveKKKBatchSupabase(kkkList);
+        await saveTimKesiswaanBatchSupabase(timKesiswaan);
+        await saveAccountsBatchSupabase(accounts);
+        await saveSettingsSupabase(settings);
+        setSupabaseTablesPending(false);
+        triggerToast('✓ Berhasil menyinkronkan seluruh data ke database Supabase PatrolSmesa!');
+      } catch (err: any) {
+        console.error('Gagal sinkronisasi Supabase:', err);
+        triggerToast('Gagal merekam ke Supabase: ' + (err?.message || 'Periksa status tabel'));
+      }
+    } else {
+      triggerToast('Merekam seluruh data lokal ke database Firebase...');
+      try {
+        await restoreFullDatabaseToCloud({
+          records,
+          students,
+          counseling: counselingEntries,
+          guruBK,
+          kkk: kkkList,
+          timKesiswaan,
+          majors,
+          classes: schoolClasses,
+          accounts,
+          settings,
+        });
+        triggerToast('Seluruh data transaksi & master berhasil terekam ke database Firebase!');
+      } catch (err) {
+        console.error('Gagal sinkronisasi data ke Firebase:', err);
+        triggerToast('Gagal merekam ke Firebase. Periksa koneksi internet/status database.');
+      }
     }
   };
 
@@ -582,7 +834,11 @@ export default function App() {
   const handleSaveSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
     saveStoredSettings(newSettings);
-    saveSettingsCloud(newSettings).catch(console.warn);
+    if (backendProvider === 'supabase') {
+      saveSettingsSupabase(newSettings).catch(console.warn);
+    } else if (backendProvider === 'firebase') {
+      saveSettingsCloud(newSettings).catch(console.warn);
+    }
   };
 
   // If user is not logged in, show the official Login Page
@@ -637,7 +893,39 @@ export default function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onSyncAllToCloud={handleSyncAllToCloud}
+        backendProvider={backendProvider}
       />
+
+      {/* Supabase PostgreSQL Tables Pending Creation Warning Banner */}
+      {backendProvider === 'supabase' && supabaseTablesPending && (
+        <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-3 shadow-md animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 bg-white/20 rounded-lg text-sm shrink-0">⚠️</span>
+            <div>
+              <span className="font-bold">Proyek Supabase PatrolSmesa Terhubung:</span>
+              <span className="ml-1 opacity-90">
+                10 Tabel database PostgreSQL belum dibuat di Supabase Anda. Salin Skema SQL lalu jalankan di Supabase SQL Editor agar seluruh tabel aktif seketika!
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setCurrentTab('pengaturan')}
+              className="px-3 py-1 bg-white text-amber-900 font-bold rounded-lg hover:bg-amber-50 transition-colors shadow-xs cursor-pointer text-xs"
+            >
+              Buka Skema &amp; Pengaturan
+            </button>
+            <a
+              href="https://supabase.com/dashboard/project/dxdtifpfqisjdqykyymz/sql/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1 bg-amber-950/60 hover:bg-amber-950 text-white font-medium rounded-lg transition-colors border border-amber-400/40 text-xs"
+            >
+              SQL Editor Supabase ↗
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
@@ -710,6 +998,7 @@ export default function App() {
               onUpdateAccounts={handleUpdateAccounts}
               onResetViolations={handleResetViolations}
               onWipeAllData={handleWipeAllData}
+              onResetSampleData={handleResetSampleData}
               onBackupData={handleBackupData}
               onRestoreData={handleRestoreData}
               onToast={triggerToast}
@@ -753,9 +1042,12 @@ export default function App() {
               onSelectTheme={handleSelectTheme}
               onResetViolations={handleResetViolations}
               onWipeAllData={handleWipeAllData}
+              onResetSampleData={handleResetSampleData}
               onBackupData={handleBackupData}
               onRestoreData={handleRestoreData}
               onSyncAllToCloud={handleSyncAllToCloud}
+              backendProvider={backendProvider}
+              onChangeBackendProvider={handleSwitchBackendProvider}
             />
           ) : (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 max-w-lg mx-auto text-center shadow-xs transition-colors my-12">

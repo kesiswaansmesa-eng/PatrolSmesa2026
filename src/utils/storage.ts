@@ -549,3 +549,23 @@ export const downloadCSV = (records: LateRecord[], filename = 'Laporan_Keterlamb
   link.click();
   document.body.removeChild(link);
 };
+
+export type DatabaseProvider = 'supabase' | 'firebase' | 'local';
+
+export const getStoredBackendProvider = (): DatabaseProvider => {
+  try {
+    const raw = localStorage.getItem('patrol_smesa_backend_provider');
+    if (raw === 'firebase' || raw === 'local') return raw;
+    return 'supabase'; // Default to Supabase as configured
+  } catch {
+    return 'supabase';
+  }
+};
+
+export const saveStoredBackendProvider = (provider: DatabaseProvider): void => {
+  try {
+    localStorage.setItem('patrol_smesa_backend_provider', provider);
+  } catch (e) {
+    console.error('Failed to save backend provider', e);
+  }
+};
